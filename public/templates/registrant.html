@@ -1,0 +1,27 @@
+
+<td>
+    {{#if checkedin}}
+        <span class="label label-success"><i class="icon-ok"></i></span>
+    {{/if}}
+    {{lastname}}, {{firstname}}<br />
+</td>
+<td>
+    {{sitecompany}}
+</td>
+<td>
+
+    <div class="btn-group">
+        <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
+            Manage
+            <span class="caret"></span>
+        </a>
+        <ul class="dropdown-menu">
+            <li class="checkin">
+                <a href="#">Checkin</a>
+            </li>
+            <li class="edit">
+                <a href="#">Edit</a>
+            </li>
+        </ul>
+    </div>
+</td>

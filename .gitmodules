@@ -1,0 +1,27 @@
+[submodule "vendors/bootstrap-notify"]
+	path = vendors/bootstrap-notify
+	url = git://github.com/Nijikokun/bootstrap-notify.git
+[submodule "vendors/bootstrap-switch"]
+	path = vendors/bootstrap-switch
+	url = git://github.com/nostalgiaz/bootstrap-switch.git
+[submodule "vendors/toolbar"]
+	path = vendors/toolbar
+	url = git://github.com/paulkinzett/toolbar.git
+[submodule "vendors/Backbone.Typeahead"]
+	path = vendors/Backbone.Typeahead
+	url = git://github.com/aodin/Backbone.Typeahead.git
+[submodule "vendors/backbone-forms"]
+	path = vendors/backbone-forms
+	url = git://github.com/powmedia/backbone-forms.git
+[submodule "vendors/bootstrap"]
+	path = vendors/bootstrap
+	url = git://github.com/twitter/bootstrap.git
+[submodule "vendors/select2"]
+	path = vendors/select2
+	url = git://github.com/ivaynberg/select2.git
+[submodule "vendors/bootstrap-datepicker"]
+	path = vendors/bootstrap-datepicker
+	url = git://github.com/eternicode/bootstrap-datepicker.git
+[submodule "vendors/machina"]
+	path = vendors/machina
+	url = git://github.com/ifandelse/machina.js.git

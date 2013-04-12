@@ -1,0 +1,25 @@
+{
+    "name": "ConferenceCheckin",
+    "description": "An app to manage conference checkins",
+    "version": "0.1.0",
+    "author": "Matt Voss",
+    "repo": "git@git.vpr.int:export_controls.git",
+    "keywords": [ ],
+    "dependencies": {
+        "underscore": "latest",
+        "uglify-js": "latest",
+        "express.io": "latest",
+        "session.socket.io": "latest",
+        "mysql": ">=2.0.0-alpha3",
+        "nodemailer": "latest",
+        "async": "latest",
+        "acl": "latest",
+        "node-uuid": "latest",
+        "glob": "latest",
+        "connect-redis": "latest",
+        "connect-multi-redis": "latest"
+    },
+    "scripts": {
+        "postinstall": "node bundler.js"
+    }
+}
