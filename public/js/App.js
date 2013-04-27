@@ -19,10 +19,11 @@ var App = {
             }
             sync(method, model, options);
         };
-
+        this.Models = {};
         this.Router = new Router();
         Backbone.history.start({pushState: true});
-
+        this.Models.events = new Events();
+        this.Models.events.fetch();
         var self = this;
 
     },
@@ -30,19 +31,23 @@ var App = {
     ioEvent: function(data) {
         console.log(data);
 
-        if (data.type == "model-update" || data.type == "review-submitted") {
-            var model = this.Models.registrants.get(data.doc._id);
-            if (model) {
-                if ("fetch" in model) {
-                    model.fetch();
+        if (App.uid != data.uid) {
+            if (data.objectType == "registrant") {
+                var model = App.Models.registrants.get(parseInt(data.objectId));
+                if (model) {
+                    if ("fetch" in model) {
+                        model.fetch({success: function(model, response, options){
+                            Backbone.trigger("updateGrid", model);
+                        }});
+                    } else {
+                        console.log("missing model:", data.objectId);
+                    }
                 } else {
-                    console.log("missing model:", data.doc._id);
+                    console.log("missing model:", data.objectId);
                 }
-            } else {
-                console.log("missing model:", data.doc._id);
-            }
 
-            this.Models.registrants.unshift(data);
+                //this.Models.registrants.unshift(data);
+            }
         }
         /*
         if (data.type == "review-submitted") {

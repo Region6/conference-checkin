@@ -16,8 +16,13 @@
         "acl": "latest",
         "node-uuid": "latest",
         "glob": "latest",
+        "redis": "latest",
         "connect-redis": "latest",
-        "connect-multi-redis": "latest"
+        "connect-multi-redis": "latest",
+        "handlebars": "latest",
+        "pdf417": "git://github.com/mattvoss/pdf417-js.git",
+        "ipp": "latest",
+        "authnet": "git://github.com/mattvoss/authnet.git"
     },
     "scripts": {
         "postinstall": "node bundler.js"

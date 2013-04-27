@@ -7,7 +7,9 @@ var express = require('express.io'),
     path = require('path'),
     routes = require('./routes'),
     ioEvents = require('./ioEvents')
-    sessionSockets = require('session.socket.io'),
+    redis = require("redis"),
+    redisClient = redis.createClient(),
+    redisStore = require('connect-redis')(express),
     opts = {};
 
 /*  ==============================================================
@@ -32,6 +34,22 @@ if (process.argv[2]) {
 if ("log" in config) {
     var access_logfile = fs.createWriteStream(config.log, {flags: 'a'})
 }
+
+if ("redis" in config) {
+    var redisConfig = config.redis;
+    redisConfig.client = redisClient;
+} else {
+    var redisConfig = {
+        "host": "localhost",
+        "port": "6379",
+        "ttl": 43200,
+        "db": "conference-checkin"
+    };
+    redisConfig.client = redisClient;
+}
+
+var cookieParser = express.cookieParser(),
+    redisSessionStore = new redisStore(redisConfig);
 
 if ("ssl" in config) {
 
@@ -75,28 +93,28 @@ var allowCrossDomain = function(req, res, next) {
 
 // Configuration
 
-var cookieParser = express.cookieParser();
 app.configure(function(){
     if ("log" in config) {
         app.use(express.logger({stream: access_logfile }));
     }
-    app.use(cookieParser);
-    app.use(express.session({
-        secret: salt,
-        maxAge: new Date(Date.now()+3600000)
-    }));
-    app.use(express.bodyParser());
-    app.use(express.methodOverride());
-    app.use(allowCrossDomain);
-    app.use('/bootstrap', express.static(__dirname + '/vendors/bootstrap'));
-    app.use('/css', express.static(__dirname + '/public/css'));
-    app.use('/vendors', express.static(__dirname + '/vendors'));
-    app.use('/js', express.static(__dirname + '/public/js'));
-    app.use('/images', express.static(__dirname + '/public/images'));
-    app.use('/font', express.static(__dirname + '/public/font'));
-    app.use(app.router);
-    app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-});
+    app
+        .use(cookieParser)
+        .use(express.bodyParser())
+        .use(express.methodOverride())
+        .use(allowCrossDomain)
+        .use(express.session({
+            store: redisSessionStore,
+            secret: salt
+        }))
+        .use('/bootstrap', express.static(__dirname + '/vendors/bootstrap'))
+        .use('/css', express.static(__dirname + '/public/css'))
+        .use('/vendors', express.static(__dirname + '/vendors'))
+        .use('/js', express.static(__dirname + '/public/js'))
+        .use('/images', express.static(__dirname + '/public/images'))
+        .use('/font', express.static(__dirname + '/public/font'))
+        .use(app.router)
+        .use(express.errorHandler({ dumpExceptions: true, showStack: true }));
+    });
 
 app.configure('development', function(){
   app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
@@ -127,13 +145,22 @@ routes.setKey("io", app.io);
     Routes
 =============================================================== */
 
-// API:Documents
-app.get('/api/registrants/:category/:search/:page', routes.registrants);
-//app.put('/json/document/:id', routes.addDocument);
+// API:Registrants
+app.get('/api/registrants/:category/:search', routes.registrants);
+app.get('/api/registrant/:id', routes.getRegistrant);
+app.put('/api/registrant/:id', routes.updateRegistrantValues);
+app.post('/api/registrant', routes.addRegistrant);
+app.patch('/api/registrant/:id', routes.updateRegistrant);
 //app.post('/json/document', routes.addDocument);
 //app.get('/json/document/:id', routes.getDocument);
 //app.put('/json/document/:id/version/:versionId', routes.updateDocument);
 //app.del('/json/document/:id', routes.deleteDocument);
+
+//API:Events
+app.get('/api/events', routes.getEvents);
+app.get('/api/events/:id/fields', routes.getEventFields);
+
+app.post('/api/payment', routes.makePayment);
 
 // API:Timeline
 //app.get('/json/timeline', routes.getTimeline);

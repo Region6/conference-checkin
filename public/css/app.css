@@ -1,0 +1,56 @@
+body {
+    margin-top: 60px;
+}
+
+.tab-content {
+    overflow:visible !important;
+}
+
+.event-row {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #E0E0E0;
+    padding-bottom: 5px;
+}
+
+#add-person-dialog,
+#add-location-dialog,
+#add-user-dialog,
+{
+    overflow: visible;
+}
+
+#add-person-dialog .modal-body,
+#add-location-dialog .modal-body,
+#add-user-dialog .modal-body
+{
+    overflow-y: visible;
+}
+
+#add-person-dialog .modal-footer,
+#add-location-dialog .modal-footer,
+#add-user-dialog .modal-footer
+{
+    position: relative;
+    z-index: 1;
+}
+
+.backgrid td {
+    overflow: visible !important;
+}
+
+@media (max-width: 979px) {
+    body {
+        margin-top: 0px;
+    }
+}
+
+.ccredit { height: 36px; }
+.ccredit div { background:url(/images/ccredit.png); border:1px solid #666; float:left; }
+.ccredit .mc { background-position:0px 0px; height:32px; margin:2px; width:56px; }
+.ccredit .vc { background-position:-56px 0px; height:32px; margin:2px; width:56px; }
+.ccredit .dc { background-position:-112px 0px; height:32px; margin:2px; width:56px; }
+.ccredit .ac { background-position:-168px 0px; height:32px; margin:2px; width:56px; }
+.ccredit .mb { background-position:0px 32px; height:32px; margin:2px; width:56px; }
+.ccredit .vb { background-position:-56px 32px; height:32px; margin:2px; width:56px; }
+.ccredit .db { background-position:-112px 32px; height:32px; margin:2px; width:56px; }
+.ccredit .ab { background-position:-168px 32px; height:32px; margin:2px; width:56px; }

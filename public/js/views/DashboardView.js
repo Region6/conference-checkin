@@ -1,10 +1,12 @@
-var MainView = Backbone.View.extend({
+var DashboardView = Backbone.View.extend({
     events: {
-
+        "click .search"             :   "search",
+        "click .addNewRegistrant"   :   "addNewRegistrant",
+        "keypress #searchText"      :   "searchOnEnter"
     },
 
     initialize: function() {
-        _.bindAll(this, 'fetch', 'render', 'unrender', "addDocument");
+        _.bindAll(this, 'fetch', 'render', 'unrender', "addDocument", "search", "searchOnEnter", "addNewRegistrant");
 
         this.registrantsView = new RegistrantsView({parent: this});
         //this.timelineView = new TimelineView({parent: this});
@@ -29,22 +31,32 @@ var MainView = Backbone.View.extend({
         $('#app').append(this.el);
         //this.timelineView.fetch();
         //$("#timelineHolder", this.$el).append(this.timelineView.el);
-        this.registrantsView.fetch({ data: { category: 'all', term: 'all', page: 1 }});
-        $("#regTable", this.$el).append(this.registrantsView.el);
+        //this.registrantsView.fetch();
+        $("#regTable", this.$el).append(this.registrantsView.render().$el);
+        $('.selectpicker', this.$el).selectpicker();
+        $('#searchText', this.$el).focus();
+        return this;
+
+    },
+
+    addNewRegistrant: function(e) {
+        var newReg = new Registrant();
+            view = new AddRegistrantView({parent: this, model:newReg});
+        this.addRegModal = new Backbone.BootstrapModal({ title: 'Add Registrant', content: view });
+        this.addRegModal.open();
 
     },
 
     search: function(e) {
         e.preventDefault();
-        var id = $(e.target).parent().attr("id");
-        //delete this.searchOptions;
-        delete this.page;
-        App.router.navigate();
-        if (id === "all") {
-            App.router.navigate("documents/all/all/1", true);
-        } else {
-            App.router.navigate("documents/campus/"+id+"/1", true);
-        }
+        var term = $("#searchText", this.$el).val(),
+            category = $("#category", this.$el).val();
+        App.Models.registrants.fetch({ data: { category: category, term: term } });
+    },
+
+    searchOnEnter: function(e) {
+        if (e.keyCode != 13) return;
+        this.search(e);
     },
 
     unrender: function () {

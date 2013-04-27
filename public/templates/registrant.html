@@ -1,27 +1,69 @@
-
-<td>
-    {{#if checkedin}}
-        <span class="label label-success"><i class="icon-ok"></i></span>
-    {{/if}}
-    {{lastname}}, {{firstname}}<br />
-</td>
-<td>
-    {{sitecompany}}
-</td>
-<td>
-
-    <div class="btn-group">
-        <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
-            Manage
-            <span class="caret"></span>
-        </a>
-        <ul class="dropdown-menu">
-            <li class="checkin">
-                <a href="#">Checkin</a>
-            </li>
-            <li class="edit">
-                <a href="#">Edit</a>
-            </li>
-        </ul>
+<div class="span10">
+    <div class="row-fluid">
+        <div class="span8">
+            <h2><a href="#" id="goBack"><i class="icon-circle-arrow-left"></i></a> &nbsp; <span class="pageTitle">{{registrantId}} : {{fields.lastname}}, {{fields.firstname}}</span></h2>
+        </div>
+        <div class="span2" style="text-align: right;">
+            <div style="margin-top: 15px;"><i class="icon-ok icon-3x" style="color: #468847;"></i></div>
+        </div>
     </div>
-</td>
+    <div class="row-fluid">
+        <div class="span10">
+            <ul class="nav nav-tabs" id="navBar">
+                <li class="nav active"><a href="#info" data-toggle="tab">Info</a></li>
+                <li class="nav"><a href="#biller" data-toggle="tab">Biller</a></li>
+                <li class="nav"><a href="#payments" data-toggle="tab">Payments</a></li>
+                <li class="nav"><a href="#linked" data-toggle="tab">Linked Registrants</a></li>
+                <li class="dropdown pull-right">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Actions <b class="caret"></b></a>
+                    <ul class="dropdown-menu">
+                      <li><a href="#" class="printBadge">Print Badge</a></li>
+                      <li><a href="#" class="printInv">Print Invoice</a></li>
+                      <li class="divider"></li>
+                      <li><a href="#" class="checkin">Checkin</a></li>
+                      <li><a href="#" class="acceptPayment">Accept Payment</a></li>
+                    </ul>
+                </li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane active" id="info"></div>
+                <div class="tab-pane" id="biller"></div>
+                <div class="tab-pane" id="payments">
+                    <table class="table table-bordered table-striped" id="registrantPayments">
+                        <thead>
+                            <tr>
+                                <th width="20%">Type</th>
+                                <th width="60%">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                        </tbody>
+                    </table>
+
+                </div>
+                <div class="tab-pane" id="linked">
+                    <table class="table table-bordered table-striped" id="linkedRegistrants">
+                        <thead>
+                            <tr>
+                                <th width="10%">&nbsp;</th>
+                                <th width="10%">ID</th>
+                                <th width="50%">Name</th>
+                                <th>&nbsp;</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row-fluid">
+        <div class="span10">
+            <div class="control-group"><button type="button" id="btn-submit" class="btn btn-primary save">Update</button></div>
+        </div>
+    </div>
+</div>

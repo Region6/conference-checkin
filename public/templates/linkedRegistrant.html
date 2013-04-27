@@ -1,0 +1,30 @@
+<td>
+    <i class="icon-ok icon-large" style="color: #468847;"></i>
+</td>
+<td>
+    {{badge_prefix}} - {{id}}
+</td>
+<td>
+    {{#if lastname}}
+        {{lastname}}, {{firstname}}
+    {{else}}
+        {{company}}
+    {{/if}}
+</td>
+<td>
+    <div class="btn-group">
+        <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
+            Manage
+            <span class="caret"></span>
+        </a>
+        <ul class="dropdown-menu">
+        <!-- dropdown menu links -->
+            <li class="edit">
+                <a href="#">Edit</a>
+            </li>
+            <li class="checkin">
+                <a href="#">Checkin</a>
+            </li>
+        </ul>
+    </div>
+</td>

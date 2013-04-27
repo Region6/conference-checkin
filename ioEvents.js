@@ -5,7 +5,7 @@ exports.connection = function (req) {
         message: 'io event from an io route on the server',
         user: req.session
     });
-    console.log("socet.id:", req.data.user, "-", req.socket.id);
+    console.log("socket.id:", req.sessionID, "-", req.socket.id);
 };
 
 

@@ -4,15 +4,14 @@ var Registrant = Backbone.Model.extend({
     defaults: {
         url: 'http://'
     },
+    urlRoot: "/api/registrant/",
     initialize: function() {
 
     },
     set: function(attributes, options) {
         var ret = Backbone.Model.prototype.set.call(this, attributes, options);
-        //this.biller = nestCollection(this, 'biller', new Biller(this.get('biller')));
+        this.linked = nestCollection(this, 'linked', new LinkedRegistrants(this.get('linked')));
+        this.payment = nestCollection(this, 'payment', new Payments(this.get('payment')));
         return ret;
-    },
-    url: function(){
-        return this.parent.url() + "/registrant/"+this.id;
     }
 });

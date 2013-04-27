@@ -1,4 +1,4 @@
-var RegistrantsCollection = Backbone.Collection.extend({
+var Registrants = Backbone.PageableCollection.extend({
     model: Registrant,
     urlRoot: '/api/registrants',
     initialize: function(models, opts) {
@@ -9,9 +9,6 @@ var RegistrantsCollection = Backbone.Collection.extend({
         if ("category" in opts) {
             this.category = opts.category;
         }
-        if ("page" in opts) {
-            this.page = opts.page;
-        }
     },
 
     url: function() {
@@ -19,13 +16,30 @@ var RegistrantsCollection = Backbone.Collection.extend({
         if (this.term && this.category) {
             // pass ids as you would a multi-select so the server will parse them into
             // a list for you.  if it's rails you'd do: id[]=
-            url = '/api/registrants/'+this.category+'/'+this.term+'/'+this.page;
+            url = '/api/registrants/'+this.category+'/'+this.term;
             // clear out send_ids
             this.search = undefined;
         } else {
-            url = '/api/registrants/all/all/1';
+            url = '/api/registrants/all/all';
         }
         return url;
+    },
+
+    // Any `state` or `queryParam` you override in a subclass will be merged with
+    // the defaults in `Backbone.PageableCollection` 's prototype.
+    state: {
+
+        // You can use 0-based or 1-based indices, the default is 1-based.
+        // You can set to 0-based by setting ``firstPage`` to 0.
+        firstPage: 0,
+
+        // Set this to the initial page index if different from `firstPage`. Can
+        // also be 0-based or 1-based.
+        currentPage: 0,
+
+        // Required under server-mode
+        totalRecords: null,
+        pageSize: 10
     },
 
     fetch: function(opts) {
@@ -37,11 +51,8 @@ var RegistrantsCollection = Backbone.Collection.extend({
             if ("category" in opts.data) {
                 this.category = opts.data.category;
             }
-            if ("page" in opts.data) {
-                this.page = opts.data.page;
-            }
             opts.data = undefined;
         }
-        return Backbone.Collection.prototype.fetch.call(this, opts);
+        return Backbone.PageableCollection.prototype.fetch.call(this, opts);
     }
 });

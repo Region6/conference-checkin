@@ -25,3 +25,24 @@
 [submodule "vendors/machina"]
 	path = vendors/machina
 	url = git://github.com/ifandelse/machina.js.git
+[submodule "vendors/bootstrap-select"]
+	path = vendors/bootstrap-select
+	url = git://github.com/silviomoreto/bootstrap-select.git
+[submodule "vendors/backbone-pageable"]
+	path = vendors/backbone-pageable
+	url = git://github.com/wyuenho/backbone-pageable.git
+[submodule "vendors/backgrid"]
+	path = vendors/backgrid
+	url = git://github.com/wyuenho/backgrid.git
+[submodule "vendors/backbone"]
+	path = vendors/backbone
+	url = git://github.com/documentcloud/backbone.git
+[submodule "vendors/underscore"]
+	path = vendors/underscore
+	url = https://github.com/documentcloud/underscore
+[submodule "vendors/swag"]
+	path = vendors/swag
+	url = git://github.com/elving/swag.git
+[submodule "vendors/jQuery-CreditCardValidator"]
+	path = vendors/jQuery-CreditCardValidator
+	url = git://github.com/PawelDecowski/jQuery-CreditCardValidator.git

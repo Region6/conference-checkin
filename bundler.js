@@ -8,26 +8,30 @@ var fs = require('fs'),
 
 var models = [
     'js/models/Registrant',
-    'js/models/Biller',
+    'js/models/RegistrantBiller',
     'js/models/LinkedRegistrants',
+    'js/models/Payment',
     'js/models/Payments',
     'js/models/Registrants',
     'js/models/Event',
+    'js/models/Events',
     'js/models/Timeline'
 ];
 var views = [
+    'js/views/AcceptPaymentView',
+    'js/views/AddRegistrantView',
     'js/views/RegistrantsView',
     'js/views/RegistrantView',
     'js/views/DashboardView',
     'js/views/RegistrantDataView',
     'js/views/RegistrantBillerView',
-    'js/views/RegistrantLinkedView',
+    'js/views/LinkedRegistrantView',
     'js/views/RegistrantPaymentView',
     'js/views/SingleRegistrantView',
     'js/views/AppView'
 ];
 var routers = [
-    'js/routers/Router'
+    'js/router/Router'
 ];
 var app = [
     'js/App'
@@ -39,18 +43,30 @@ var templates = [
     'registrant',
     'registrants',
     'dashboard',
-    'header'
+    'header',
+    'linkedRegistrant',
+    'payment',
+    'acceptPayment'
 ];
 
 var vendors = [
     'jquery.min',
+    'jquery-ui.min',
+    'jquery.ui.widget',
     'json2',
-    'underscore',
+    'underscore/underscore',
     'handlebars',
-    'backbone',
+    'backbone/backbone',
     'backbone-schema',
     'backbone.nestCollection',
     'backbone-dotattr',
+    'backbone-forms/distribution/backbone-forms',
+    'backbone-forms/distribution/editors/list',
+    'backbone-forms/distribution/templates/bootstrap',
+    'backbone-form-typeahead',
+    'backbone-form-custom-editors',
+    'backbone-pageable/lib/backbone-pageable',
+    'backbone.bootstrap-modal/src/backbone.bootstrap-modal',
     'machina/lib/machina',
     'jquery.tagsinput.min',
     'jquery.masonry.min',
@@ -60,8 +76,6 @@ var vendors = [
     'bootstrap-datepicker/js/bootstrap-datepicker',
     'bootstrap-typeahead',
     'bootstrap/bootstrap/js/bootstrap',
-    'jquery-ui.min',
-    'jquery.ui.widget',
     'jquery.iframe-transport',
     'jquery.fileupload',
     'jquery.fileupload-fp',
@@ -69,11 +83,12 @@ var vendors = [
     'jquery.blockUI',
     'bootstrap-notify/js/bootstrap-notify',
     'bootstrap-switch/static/js/bootstrapSwitch',
-    'toolbars/jquery.toolbar.js',
-    'backbone-forms/distribution/backbone-forms',
-    'backbone-forms/distribution/templates/bootstrap',
-    'backbone-form-typeahead',
-    'backbone-form-custom-editors'
+    'toolbar/jquery.toolbar',
+    'bootstrap-select/bootstrap-select',
+    'backgrid/lib/backgrid',
+    'backgrid/lib/extensions/paginator/backgrid-paginator',
+    'swag/lib/swag',
+    'jQuery-CreditCardValidator/jquery.creditCardValidator'
 ];
 
 var bundle = '';

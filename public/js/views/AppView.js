@@ -6,20 +6,19 @@ var AppView = Backbone.View.extend({
 
     initialize: function() {
         _.bindAll(this, 'render', 'home', 'login');
-        this.currentDoc = {};
-        this.currentGroup = {};
+        this.currentRegistrant = {};
     },
 
     render: function() {
-         var source = Templates.dashboard,
+         var source = Templates.header,
             template = Handlebars.compile(source),
             html = template();
-        $('#header').html(html);
+         $('#header').html(html);
     },
 
     home: function(e) {
         e.preventDefault();
-        App.router.navigate("dash", true);
+        App.Router.navigate("dash", true);
     },
 
     login: function(e) {

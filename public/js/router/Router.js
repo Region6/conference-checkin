@@ -26,38 +26,39 @@ var Router = Backbone.Router.extend({
     index: function() {
         //if the user is logged in, show their documents, otherwise show the signup form
         this.navigate("dash", true);
-    },
-
-    registrant: function(docId) {
-        if (typeof App.currentDoc == 'undefined') {
-            App.currentDoc = this.views.main.documentsView.collection.get(docId);
-        }
-        var type = ("type" in App.currentDoc.attributes.versions[0]) ? App.currentDoc.attributes.versions[0].type : "project";
-        if (type == "person") {
-            type = ("subType" in App.currentDoc.attributes.versions[0]) ? App.currentDoc.attributes.versions[0].subType : "restrictedParty";
-        }
-        this.setBody(new EditView({ model: App.currentDoc, type: type, review: false }), true);
-        //this.view.body.fetch();
-        //new EditView({ model: App.currentDoc }).render();
+        /**
+        this.views.dash = new DashboardView();
+        App.Io.emit('ready', {'user': App.uid});
+        this.setBody(this.views.dash, true);
         this.view.body.render();
+        **/
     },
 
-    dash: function() {
-        this.views.main = new DashboardView();
-        App.io.emit('ready', {'user': App.uid});
+    registrant: function(registrantId) {
+        var registrant = App.Models.registrants.get(registrantId);
+        this.views.main = new RegistrantView({ model: registrant });
         this.setBody(this.views.main, true);
         this.view.body.render();
     },
 
+    dash: function() {
+        this.views.dash = new DashboardView();
+        App.Io.emit('ready', {'user': App.uid});
+        this.setBody(this.views.dash, true);
+        this.view.body.render();
+    },
+
     setBody: function(view, auth) {
+        /**
         if (auth == true && typeof App.user == 'undefined') {
             this.navigate("", true);
             return;
         }
-
-        if (typeof this.view.body != 'undefined')
+        **/
+        if (typeof this.view.body != 'undefined') {
             this.view.body.unrender();
-
+        }
+        App.CurrentView = view;
         this.view.body = view;
     }
 
