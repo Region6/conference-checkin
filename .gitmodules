@@ -46,3 +46,6 @@
 [submodule "vendors/jQuery-CreditCardValidator"]
 	path = vendors/jQuery-CreditCardValidator
 	url = git://github.com/PawelDecowski/jQuery-CreditCardValidator.git
+[submodule "vendors/backbone.bootstrap-modal"]
+	path = vendors/backbone.bootstrap-modal
+	url = git://github.com/mattvoss/backbone.bootstrap-modal.git
