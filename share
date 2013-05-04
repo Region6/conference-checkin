@@ -1,0 +1,1 @@
+(SELECT * FROM group_members WHERE confirmnum LIKE "%EX2013%") UNION (SELECT biller.id, biller.userId, biller.eventId, biller.userId, biller.register_date, biller.confirmNum, 0 as attend, 0 as discount_code_id, '0000-00-00 00:00:00' as checked_in_time FROM biller WHERE confirmNum LIKE "%EX2013%")

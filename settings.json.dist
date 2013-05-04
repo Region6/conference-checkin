@@ -1,0 +1,21 @@
+{
+    "mysql":{
+        "host"     : "localhost",
+        "user"     : "checkin",
+        "password" : "XURpHFj4XWb3CwEz",
+        "database" : "test",
+        "multipleStatements": true
+    },
+    "redis": {
+        "host": "localhost",
+        "port": "6379",
+        "ttl": 43200,
+        "db": "conference-checkin"
+    },
+    "port": 3001,
+    "authorizenet": {
+        "id": "6Byf2f5THtr",
+        "key": "6422pPETW5sv8VYB",
+        "env": "live"
+    }
+}

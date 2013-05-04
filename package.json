@@ -1,7 +1,7 @@
 {
     "name": "ConferenceCheckin",
     "description": "An app to manage conference checkins",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "Matt Voss",
     "repo": "git@git.vpr.int:export_controls.git",
     "keywords": [ ],
@@ -22,7 +22,9 @@
         "handlebars": "latest",
         "pdf417": "git://github.com/mattvoss/pdf417-js.git",
         "ipp": "latest",
-        "authnet": "git://github.com/mattvoss/authnet.git"
+        "authnet": "git://github.com/mattvoss/authnet.git",
+        "request": "latest",
+        "xml2json": "latest"
     },
     "scripts": {
         "postinstall": "node bundler.js"

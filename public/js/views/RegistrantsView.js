@@ -50,29 +50,34 @@ var RegistrantsView = Backbone.View.extend({
                 {
                     name: "registrantId",
                     label: "ID",
+                    editable: false,
                     // The cell type can be a reference of a Backgrid.Cell subclass, any Backgrid.Cell subclass instances like *id* above, or a string
                     cell: "string" // This is converted to "StringCell" and a corresponding class in the Backgrid package namespace is looked up
                 },
                 {
                     name: "confirmation",
                     label: "Confirmation",
+                    editable: false,
                     // The cell type can be a reference of a Backgrid.Cell subclass, any Backgrid.Cell subclass instances like *id* above, or a string
                     cell: "string" // This is converted to "StringCell" and a corresponding class in the Backgrid package namespace is looked up
                 },
                 {
                     name: "lastname",
                     label: "Last Name",
+                    editable: false,
                     // The cell type can be a reference of a Backgrid.Cell subclass, any Backgrid.Cell subclass instances like *id* above, or a string
                     cell: "string" // This is converted to "StringCell" and a corresponding class in the Backgrid package namespace is looked up
                 },
                 {
                   name: "firstname",
                   label: "First Name",
+                  editable: false,
                   cell: "string"
                 },
                 {
                   name: "company",
                   label: "Company",
+                  editable: false,
                   cell: "string" // A cell type for floating point value, defaults to have a precision 2 decimal numbers
                 },
                 {
@@ -96,13 +101,19 @@ var RegistrantsView = Backbone.View.extend({
             var view = view;
             console.log(e, model);
             if (e.target.className == "printBadge") {
-                window.open("registrant/"+model.id+"/badge/print", '_blank');
+                $.getJSON("registrant/"+model.id+"/badge/print", function(data) {
+                    console.log(data);
+                });
             } else if (e.target.className == "downloadBadge") {
                 window.open("registrant/"+model.id+"/badge/download", '_blank');
             } else if (e.target.className == "editRegistrant") {
                 App.Router.navigate("registrant/"+model.id, true);
             } else if (e.target.className == "checkinRegistrant") {
-                model.save({"checked_in": 1}, {patch: true, success: function(model, response) {
+                model.save({"attend": 1}, {patch: true, success: function(model, response) {
+                    view.savedRegistrant(model, view);
+                }});
+            } else if (e.target.className == "checkoutRegistrant") {
+                model.save({"attend": 0}, {patch: true, success: function(model, response) {
                     view.savedRegistrant(model, view);
                 }});
             } else {

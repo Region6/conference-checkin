@@ -19,7 +19,13 @@ var express = require('express.io'),
 //used for session and password hashes
 var salt = '20sdkfjk23';
 
-
+fs.exists(__dirname + '/tmp', function (exists) {
+    if (!exists) {
+        fs.mkdir(__dirname + '/tmp', function (d) {
+            console.log("temp directory created");
+        });
+    }
+});
 
 if (process.argv[2]) {
     if (fs.lstatSync(process.argv[2])) {
@@ -28,7 +34,7 @@ if (process.argv[2]) {
         config = require(process.cwd()+'/settings.json');
     }
 } else {
-    config = require(process.cwd()+'/settings.json');
+    config = require(__dirname + '/settings.json');
 }
 
 if ("log" in config) {
@@ -155,6 +161,9 @@ app.patch('/api/registrant/:id', routes.updateRegistrant);
 //app.get('/json/document/:id', routes.getDocument);
 //app.put('/json/document/:id/version/:versionId', routes.updateDocument);
 //app.del('/json/document/:id', routes.deleteDocument);
+
+// Generate Badge
+app.get('/registrant/:id/badge/:action', routes.genBadge);
 
 //API:Events
 app.get('/api/events', routes.getEvents);

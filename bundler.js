@@ -19,6 +19,7 @@ var models = [
 ];
 var views = [
     'js/views/AcceptPaymentView',
+    'js/views/ChangeConfirmationView',
     'js/views/AddRegistrantView',
     'js/views/RegistrantsView',
     'js/views/RegistrantView',
@@ -88,7 +89,8 @@ var vendors = [
     'backgrid/lib/backgrid',
     'backgrid/lib/extensions/paginator/backgrid-paginator',
     'swag/lib/swag',
-    'jQuery-CreditCardValidator/jquery.creditCardValidator'
+    'jQuery-CreditCardValidator/jquery.creditCardValidator',
+    'credit_card_track_parser/lib/credit_card_track_parser'
 ];
 
 var bundle = '';

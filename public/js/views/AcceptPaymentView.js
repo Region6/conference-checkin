@@ -1,11 +1,13 @@
 var AcceptPaymentView = Backbone.View.extend({
     events: {
-        "click .mcc"        :   "renderMCC",
-        "click .cc"        :    "renderCC"
+        "click .cc"             :   "renderCC",
+        "click .mcc"            :   "renderMCC",
+        "click .ck"             :   "renderCheck",
+        "keypress #swipe"       :   "makePaymentOnEnter"
     },
 
     initialize: function(opts) {
-        _.bindAll(this, 'render', 'okClicked', 'renderCC', 'renderMCC', 'shown');
+        _.bindAll(this, 'render', 'makePayment', 'makePaymentOnEnter', 'renderCC', 'renderMCC', 'renderCheck', 'shown');
         this.parent = opts.parent;
         this.bind("ok", this.makePayment);
         this.bind("shown", this.shown);
@@ -61,29 +63,26 @@ var AcceptPaymentView = Backbone.View.extend({
         delete this.el; // Delete the variable reference to this node
     },
 
-    okClicked: function (modal) {
-        this.model.set(this.form.getValue()); // runs schema validation
-        /*
-        this.model.set({
-            "eventId": this.genEvent.get('eventId'),
-            "slabId": this.genEvent.get('local_slabId')
-        });
-        this.model.save({}, {success: function(model, response, options) {
-            App.Models.registrants.reset(model);
-            App.Router.navigate("registrant/"+model.id, true);
-        }});
-        */
-    },
-
     renderCC: function() {
-
+        var view = this;
         this.form = new Backbone.Form({
             schema: {
+                amount: {type:"Number", title:"Amount to be charged"},
                 swipe: {type: "Text"}
             }
         }).render();
 
         $(".paymentControls", this.$el).html(this.form.$el);
+
+        $('.paymentControls form', this.$el).bind("keypress", function(e) {
+            var code = e.keyCode || e.which;
+            if (code  == 13) {
+                e.preventDefault();
+                view.makePayment(e);
+                return false;
+            }
+        });
+        $("#swipe", this.$el).focus();
 
     },
 
@@ -94,13 +93,25 @@ var AcceptPaymentView = Backbone.View.extend({
                 amount: {type:"Number", title:"Amount to be charged"},
                 fullName: {type: "Text", title:"Card Holder's Name"},
                 cardNumber: {type: "Text", title:"Card Number"},
+                address: {type: "Text", title:"Street Address"},
+                city: {type: "Text", title:"City"},
+                state: {type: "Text", title:"State"},
+                zip: {type: "Text", title:"Zip"},
                 expirationMonth: { type: "Select", options: this.months, title: "Expiration Month" },
                 expirationYear: { type: "Select", options: ["2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020"], title: "Expiration Year" },
                 cardCode: { type: "Text", title:"Card Security Number" },
+            },
+            data: {
+                fullName: this.parent.model.get("firstname") + " " + this.parent.model.get("lastname"),
+                address: this.parent.model.get("street1"),
+                city: this.parent.model.get("city"),
+                state: this.parent.model.get("state"),
+                zip: this.parent.model.get("zipcode"),
             }
         }).render();
 
         $(".paymentControls", this.$el).html(this.form.$el);
+        $("#creditCardTypes", this.$el).show();
 
         $("#cardNumber", this.$el).validateCreditCard(function(result){
                 if (result.luhn_valid) {
@@ -125,61 +136,113 @@ var AcceptPaymentView = Backbone.View.extend({
         );
     },
 
+    renderCheck: function() {
+        var view = this;
+        this.form = new Backbone.Form({
+            schema: {
+                amount: {type:"Number", title:"Amount to be charged"},
+                checkNumber: {type: "Text", title:"Check Number"}
+            }
+        }).render();
+
+        $(".paymentControls", this.$el).html(this.form.$el);
+        $("#creditCardTypes", this.$el).hide();
+    },
+
     shown: function(e) {
         $("#swipe", this.$el).focus();
     },
 
+    makePaymentOnEnter: function(e) {
+        if (e.keyCode != 13) return;
+        e.stopImmediatePropagation();
+        //this.makePayment(e);
+    },
+
     makePayment: function(e) {
-        var values = this.form.getValue(),
+        var view = this,
+            values = this.form.getValue(),
+            type = "credit",
             transaction = {
                 "transactionType": "authCaptureTransaction",
                 "amount": values.amount,
-                "payment": {
-                    "creditCard" : {
-                        "cardNumber": values.cardNumber,
-                        "expirationDate": values.expirationMonth+"/"+values.expirationYear
-                    }
-                },
-                "order": {
-                    "invoiceNumber": this.parent.model.get("confirmation")
-                },
-                "customer": {
-                    "email": "voss.matthew@gmail.com"//this.parent.model.get("email")
-                },
-                "billTo":{},
-                "shipTo":{}
+                "payment": {}
+            };
+        if ("swipe" in values) {
+            type = "swipe";
+            var ccData = new CreditCardTrackData(values.swipe),
+                firstname = $.trim(ccData.first_name || this.parent.model.get("firstname")),
+                lastname = $.trim(ccData.last_name || this.parent.model.get("lastname")),
+                expiration = ccData.expiration.slice(2) + "/" + ccData.expiration.slice(0,-2);
+            var trackData = {
+                "trackData" : {
+                    "track1": ccData.track1.raw
+                }
+            };
+            transaction.payment = _.extend(
+                transaction.payment,
+                trackData
+            );
+        } else if("checkNumber" in values) {
+            type = "check";
+            transaction.payment.checkNumber = values.checkNumber;
+        } else {
+            var creditCard = {
+                "creditCard" : {
+                    "cardNumber": values.cardNumber,
+                    "expirationDate": values.expirationMonth+"/"+values.expirationYear,
+                    "cardCode": values.cardCode
+                }
             },
             name = values.fullName.split(" ");
-        transaction.shipTo.firstName = transaction.billTo.firstName = name[0];
-        if (name.length > 2) {
-            transaction.shipTo.lastName = transaction.billTo.lastName = name[2];
-        } else {
-            transaction.shipTo.lastName = transaction.billTo.lastName = name[1];
+            transaction.payment = _.extend(
+                transaction.payment,
+                creditCard
+            );
+            var firstname = name[0],
+                lastname = "";
+            if (name.length > 2) {
+                lastname = name[2];
+            } else {
+                lastname = name[1];
+            }
         }
+        var orderInfo =  {
+            "order": {
+                "invoiceNumber": this.parent.model.get("confirmation")
+            },
+            "customer": {
+                "email": "voss.matthew@gmail.com"//this.parent.model.get("email")
+            },
+            "billTo":{},
+            "shipTo":{}
+        };
+        transaction = _.extend(
+            transaction,
+            orderInfo
+        );
+        transaction.shipTo.firstName = transaction.billTo.firstName = firstname;
+        transaction.shipTo.lastName = transaction.billTo.lastName = lastname;
+        var address = {
+            "address": values.address || this.parent.model.get("street1"),
+            "city": values.city || this.parent.model.get("city"),
+            "state": values.state || this.parent.model.get("state"),
+            "zip": values.zip || this.parent.model.get("zipcode")
+        };
         transaction.billTo = _.extend(
             transaction.billTo,
-            {
-                "address": this.parent.model.get("street1"),
-                "city": this.parent.model.get("city"),
-                "state": this.parent.model.get("state"),
-                "zip": this.parent.model.get("zipcode"),
-                "phoneNumber": this.parent.model.get("phone")
-            }
+            address
         );
         transaction.shipTo = _.extend(
             transaction.shipTo,
-            {
-                "address": this.parent.model.get("street1"),
-                "city": this.parent.model.get("city"),
-                "state": this.parent.model.get("state"),
-                "zip": this.parent.model.get("zipcode"),
-                "phoneNumber": this.parent.model.get("phone")
-            }
+            address
         );
 
-        this.model.set(transaction);
+        this.model.set({registrant: this.parent.model, transaction:transaction, type: type});
         this.model.save({}, {success: function(model, response, options) {
             console.log(response);
+            view.parent.savedRegistrant();
+            //modal.close();
         }});
     }
 

@@ -2,11 +2,29 @@ var RegistrantView = Backbone.View.extend({
     events: {
         "click #goBack"             :   "goBack",
         "click #btn-submit"         :   "saveRegistrant",
-        "click .acceptPayment"      :   "acceptPayment"
+        "click .acceptPayment"      :   "acceptPayment",
+        "click .printBadge"         :   "printBadge",
+        "click .downloadBadge"      :   "downloadBadge",
+        "click .printInvoice"       :   "printInvoice",
+        "click .checkIn"            :   "checkIn",
+        "click .checkOut"           :   "checkOut",
+        "click .changeConfirmation" :   "changeConfirmation"
     },
 
     initialize: function() {
-        _.bindAll(this, 'render', 'goBack', 'saveRegistrant', 'acceptPayment');
+        _.bindAll(this,
+            'render',
+            'goBack',
+            'saveRegistrant',
+            'acceptPayment',
+            'printBadge',
+            'downloadBadge',
+            'printInvoice',
+            'checkIn',
+            'checkOut',
+            'savedRegistrant',
+            'changeConfirmation'
+        );
     },
 
     render: function() {
@@ -40,8 +58,8 @@ var RegistrantView = Backbone.View.extend({
         $("#biller", this.$el).append(this.billerForm.$el);
 
         _(this.model.linked.models).each(function(person) {
-            if (view.model.id !== person.get("id")) {
-                var personV = new LinkedRegistrantView({ model: person });
+            if (view.model.get("id") !== person.get("id")) {
+                var personV = new LinkedRegistrantView({ parent: this, model: person });
                 personV.on('modelUpdate', view.refresh, view);
                 personV.render();
                 $('#linkedRegistrants tbody', view.$el).append(personV.$el);
@@ -49,12 +67,12 @@ var RegistrantView = Backbone.View.extend({
         });
 
         _(this.model.payment.models).each(function(payment) {
-            if (view.model.id !== payment.get("id")) {
-                var paymentV = new RegistrantPaymentView({ model: payment });
+
+                var paymentV = new RegistrantPaymentView({ parent: this, model: payment });
                 paymentV.on('modelUpdate', view.refresh, view);
                 paymentV.render();
                 $('#registrantPayments tbody', view.$el).append(paymentV.$el);
-            }
+
         });
         return this;
     },
@@ -89,6 +107,47 @@ var RegistrantView = Backbone.View.extend({
         this.acceptPaymentModal = new Backbone.BootstrapModal({ title: 'Accept Payment', content: view });
         this.acceptPaymentModal.open();
 
-    }
+    },
 
+    printBadge: function(e) {
+        $.getJSON("registrant/"+this.model.id+"/badge/print", function(data) {
+            console.log(data);
+        });
+    },
+
+    downloadBadge: function(e) {
+        window.open(this.model.id+"/badge/download", '_blank');
+    },
+
+    printInvoice: function(e) {
+
+    },
+
+    checkIn: function(e) {
+        var view = this;
+        this.model.save({"attend": 1}, {patch: true, success: function(model, response) {
+            view.savedRegistrant(model, view);
+        }});
+    },
+
+    checkOut: function(e) {
+        var view = this;
+        this.model.save({"attend": 0}, {patch: true, success: function(model, response) {
+            view.savedRegistrant(model, view);
+        }});
+    },
+
+    savedRegistrant: function(model, view) {
+        var view = this;
+        this.model.fetch({success: function(model, response, options) {
+            view.render();
+        }});
+    },
+
+    changeConfirmation: function(e) {
+        var view = new ChangeConfirmationView({parent: this, model:this.model});
+        this.changeConfirmationModal = new Backbone.BootstrapModal({ title: 'Change Confirmation', content: view });
+        this.changeConfirmationModal.open();
+
+    }
 });
