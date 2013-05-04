@@ -2,7 +2,6 @@
 
 var fs = require('fs'),
     path = require('path'),
-    ldap = require('ldapjs'),
     mysql = require('mysql'),
     email = require('nodemailer'),
     crypto = require('crypto'),

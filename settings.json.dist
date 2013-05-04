@@ -3,7 +3,7 @@
         "host"     : "localhost",
         "user"     : "checkin",
         "password" : "XURpHFj4XWb3CwEz",
-        "database" : "test",
+        "database" : "checkin",
         "multipleStatements": true
     },
     "redis": {
