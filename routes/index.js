@@ -723,7 +723,7 @@ exports.genBadge = function(req, res) {
     **/
     console.log("[genBadge] session id:", req.session.id);
     console.log("Badge action:", action);
-    getEventGroupMembers(["registrantid"], id, 0, 20, registrantCallback);
+    getEventGroupMembers(["registrantid"], id, 0, 20, registrantCallback, false);
 
 
 };
