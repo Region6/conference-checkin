@@ -296,7 +296,7 @@ var processGroupMembers = function(extra, members, registrants, index, cb) {
           " FROM group_members"+
           " WHERE groupUserId = ? AND event_id = ?;"+
           " SELECT * FROM event_fields WHERE event_id = ? AND badge_order > 0 ORDER BY badge_order ASC;"+
-          " SELECT * FROM event_fees LEFT JOIN biller ON event_fees.user_id = biller.user_id WHERE event_fees.event_id = ? AND event_fees.user_id = ? ORDER BY event_fees.id ASC;"+
+          " SELECT event_fees.*, biller.transaction_id FROM event_fees LEFT JOIN biller ON event_fees.user_id = biller.user_id WHERE event_fees.event_id = ? AND event_fees.user_id = ? ORDER BY event_fees.id ASC;"+
           " SELECT * FROM biller WHERE eventId = ? AND userId = ? ORDER BY id ASC;"+
           " SELECT * FROM event WHERE eventId = ?;"+
           " SELECT * FROM event_fields WHERE event_id = ? ORDER BY ordering ASC;";
