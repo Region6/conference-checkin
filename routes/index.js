@@ -69,7 +69,7 @@ var getPrinter = function() {
         if (err) throw err;
         console.log(rows);
         rows.forEach(function(row, index) {
-            printerUrl[rows.type] = {url:"http://"+row.host+row.uri};
+            printerUrl[row.type] = {url:"http://"+row.host+row.uri};
         });
     });
 }
