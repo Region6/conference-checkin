@@ -249,7 +249,7 @@ var AcceptPaymentView = Backbone.View.extend({
                 view.parent.errors = response.transactionResponse.errors;
                 view.parent.renderError();
             }
-            modal.close();
+            //modal.close();
         }});
     }
 

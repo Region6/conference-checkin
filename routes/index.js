@@ -846,7 +846,12 @@ exports.updateRegistrantValues = function(req, res) {
                 }
                 vars.push(values.fields[field.name], values.event_id, field.local_id, values.local_id);
                 //console.log(values.fields[field.name], values.event_id, field.local_id, values.local_id);
-
+                sql += "UPDATE biller_field_values SET value = ? WHERE event_id = ? AND field_id = ? AND user_id = ?;";
+                if (field.values) {
+                    var fValues = field.values.split("|");
+                    values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
+                }
+                vars.push(values.fields[field.name], values.event_id, field.local_id, values.biller_id);
             }
         });
 
