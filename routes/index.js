@@ -1103,7 +1103,7 @@ exports.makePayment = function(req, res) {
                 } else {
                     sql = "INSERT INTO"
                 }
-                sql += " biller SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ? WHERE event_id = ? AND user_id = ?";
+                sql += " biller SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ? WHERE eventId = ? AND user_id = ?";
 
                 connection.query(sql, vars, function(err, result) {
                     if (err) console.log(err);
