@@ -615,7 +615,7 @@ exports.index = function(req, res){
 
     //Don't process requests for API endpoints
     if (req.url.indexOf('/api') === 0 ) { return next(); }
-    console.log("[index] session id:", req.session.id);
+    console.log("[index] session id:", sid);
 
     var init = "$(document).ready(function() { App.initialize(); });";
     //if (typeof req.session.user !== 'undefined') {
