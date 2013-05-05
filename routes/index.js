@@ -22,6 +22,7 @@ var fs = require('fs'),
     svgHeader = fs.readFileSync("./header.svg", "utf8"),
     receipt = fs.readFileSync("./public/templates/receipt.html", "utf8"),
     opts = {},
+    printerUrl = {},
     connection = null,
     client = null,
     transport = null,
@@ -54,13 +55,24 @@ exports.setKey = function(key, value) {
 exports.initialize = function() {
     //Initialize Mysql
     getConnection();
-
+    getPrinter();
     //Initialize Email Client
     transport = email.createTransport("sendmail", {
         args: ["-f noreply@vpr.tamu.edu"]
     });
 
 };
+
+var getPrinter = function() {
+    var sql = "SELECT * FROM printers ORDER BY type ASC";
+    connection.query(sql, function(err, rows) {
+        if (err) throw err;
+        console.log(rows);
+        rows.forEach(function(row, index) {
+            printerUrl[rows.type] = "http://"+row.host+row.uri;
+        });
+    });
+}
 
 var getEventGroupMembers = function(fields, search, page, limit, cb, extra) {
     var sql = "",
@@ -683,7 +695,7 @@ exports.genBadge = function(req, res) {
             res.end(pdf, 'binary');
         },
         printCallback = function(pdf) {
-            var printer = ipp.Printer("http://mediaserver.local.:631/printers/HP_HP_Photosmart_8400_series");
+            var printer = ipp.Printer(printerUrl.badge);
             var msg = {
                 "operation-attributes-tag": {
                     "requesting-user-name": "Station",
