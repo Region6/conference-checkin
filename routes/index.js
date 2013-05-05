@@ -706,6 +706,7 @@ exports.genBadge = function(req, res) {
                 data: pdf
             };
             printer.execute("Print-Job", msg, function(err, res){
+                if (err) console.log(err);
                 resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
                 resource.writeHead(200, { 'Content-type': 'application/json' });
                 resource.write(JSON.stringify(res), 'utf-8');
