@@ -609,7 +609,7 @@ var saveTransaction = function(res, callback) {
 *************/
 
 exports.index = function(req, res){
-    var sid = req.session.id;
+    var sid = (typeof req.session != "undefined") ? req.session.id : null;
     //Regenerates the JS/template file
     //if (req.url.indexOf('/bundle') === 0) { bundle(); }
 
