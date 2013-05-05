@@ -1092,9 +1092,11 @@ exports.makePayment = function(req, res) {
         sql = "UPDATE biller SET transaction_id = ? WHERE eventId = ? AND userId = ?";
         var vars = [values.transaction.payment.checkNumber, values.registrant.event_id, values.registrant.biller_id];
         connection.query(sql, vars, function(err, results) {
+            if (err) console.log(err);
             sql = "SELECT * FROM event_fees WHERE event_id = ? AND user_id = ?";
             var vars = [values.registrant.event_id, values.registrant.biller_id];
             connection.query(sql, vars, function(err, rows) {
+                if (err) console.log(err);
                 var vars = [transAction.amount, transAction.amount, transAction.amount, 1, "2", values.registrant.event_id, values.registrant.biller_id];
                 if (rows.length > 0) {
                     sql = "UPDATE";
@@ -1104,6 +1106,7 @@ exports.makePayment = function(req, res) {
                 sql += " biller SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ? WHERE event_id = ? AND user_id = ?";
 
                 connection.query(sql, vars, function(err, result) {
+                    if (err) console.log(err);
                     successCallback({dbResult:result});
                 });
             });
