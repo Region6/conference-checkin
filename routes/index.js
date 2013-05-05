@@ -69,7 +69,7 @@ var getPrinter = function() {
         if (err) throw err;
         console.log(rows);
         rows.forEach(function(row, index) {
-            printerUrl[rows.type] = "http://"+row.host+row.uri;
+            printerUrl[rows.type] = {url:"http://"+row.host+row.uri};
         });
     });
 }
@@ -695,7 +695,8 @@ exports.genBadge = function(req, res) {
             res.end(pdf, 'binary');
         },
         printCallback = function(pdf) {
-            var printer = ipp.Printer(printerUrl.badge);
+            console.log(printerUrl);
+            var printer = ipp.Printer(printerUrl.badge.url);
             var msg = {
                 "operation-attributes-tag": {
                     "requesting-user-name": "Station",
