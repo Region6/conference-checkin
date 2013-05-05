@@ -1,18 +1,30 @@
 var AddRegistrantView = Backbone.View.extend({
     events: {
-
+        "change #eventSelect"        :   "changeForm"
     },
 
-    initialize: function() {
-        _.bindAll(this, 'render', 'okClicked');
+    initialize: function(opts) {
+        _.bindAll(this, 'render', 'okClicked', "changeForm", 'renderForm', 'renderEventSel');
+        this.parent = opts.parent;
         this.bind("ok", this.okClicked);
-        this.genEvent = App.Models.events.where({reg_type: "general", member: 1})[0];
+        var search = (opts.eventId) ? {eventId: opts.eventId} : {reg_type: "general", member: 1};
+        this.genEvent = App.Models.events.where(search)[0];
     },
 
     render: function() {
-        var vars        = this.model.attributes,
+        var source      = Templates.addRegistrant,
+            template    = Handlebars.compile(source),
+            vars        = this.model.attributes,
+            html        = template(vars),
             view        = this;
 
+        this.$el.html(html);
+        this.renderForm();
+        this.renderEventSel();
+        return this;
+    },
+
+    renderForm: function() {
         this.form = new Backbone.Form({
             schema: this.genEvent.get('fields'),
             fieldsets: [{
@@ -20,9 +32,17 @@ var AddRegistrantView = Backbone.View.extend({
             }]
         }).render();
 
-        $(this.$el).append(this.form.$el);
+        $(".addRegForm", this.$el).html(this.form.$el);
+    },
 
-        return this;
+    renderEventSel: function() {
+        var eventSel = '<select data-width="450px" class="evSelectPicker" id="eventSelect">';
+        _(App.Models.events.models).each(function(event) {
+            eventSel += '<option value="'+event.get("eventId")+'">'+event.get("title")+'</option>';
+        });
+        eventSel += '</select><br />';
+        $(".eventSelect", this.$el).html(eventSel);
+        $('.evSelectPicker', this.$el).selectpicker();
     },
 
     unrender: function() {
@@ -50,6 +70,13 @@ var AddRegistrantView = Backbone.View.extend({
             App.Models.registrants.reset(model);
             App.Router.navigate("registrant/"+model.id, true);
         }});
+    },
+
+    changeForm: function(e) {
+        var eventId = e.target.value,
+            search = {eventId: eventId};
+        this.genEvent = App.Models.events.where(search)[0];
+        this.renderForm();
     }
 
 });

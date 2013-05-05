@@ -47,7 +47,8 @@ var templates = [
     'header',
     'linkedRegistrant',
     'payment',
-    'acceptPayment'
+    'acceptPayment',
+    'addRegistrant'
 ];
 
 var vendors = [

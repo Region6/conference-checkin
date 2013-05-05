@@ -1,11 +1,14 @@
 var LinkedRegistrantView = Backbone.View.extend({
     tagName: 'tr',
     events: {
-
+        "click .checkLinkedIn"            :   "checkIn",
+        "click .checkLinkedOut"           :   "checkOut",
+        "click .edit"               :   "edit"
     },
 
-    initialize: function() {
-        _.bindAll(this, 'render');
+    initialize: function(opts) {
+        _.bindAll(this, 'render', 'checkIn', 'checkOut', 'edit');
+        this.parent = opts.parent;
     },
 
     render: function() {
@@ -35,6 +38,24 @@ var LinkedRegistrantView = Backbone.View.extend({
 
     goBack: function(e) {
         App.Router.navigate("dash", true);
+    },
+
+    checkIn: function(e) {
+        var view = this;
+        this.model.save({"attend": 1}, {patch: true, success: function(model, response) {
+            view.parent.fetch("linked");
+        }});
+    },
+
+    checkOut: function(e) {
+        var view = this;
+        this.model.save({"attend": 0}, {patch: true, success: function(model, response) {
+            view.parent.fetch("linked");
+        }});
+    },
+
+    edit: function(e) {
+        App.Router.navigate("/registrant/"+this.model.get("id"), true);
     }
 
 });

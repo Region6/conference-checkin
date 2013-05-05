@@ -18,7 +18,9 @@ var fs = require('fs'),
     authnet = require('authnet'),
     request = require('request'),
     parser = require('xml2json'),
+    Swag = require('../vendors/swag'),
     svgHeader = fs.readFileSync("./header.svg", "utf8"),
+    receipt = fs.readFileSync("./public/templates/receipt.html", "utf8"),
     opts = {},
     connection = null,
     client = null,
@@ -60,13 +62,14 @@ exports.initialize = function() {
 
 };
 
-var getEventGroupMembers = function(fields, search, page, limit, cb) {
+var getEventGroupMembers = function(fields, search, page, limit, cb, extra) {
     var sql = "",
         fields = fields || [],
         search = search || "all",
         page = page || 0,
         limit = limit || 20,
-        vars = [];
+        vars = [],
+        extra = extra || false;
 
     if (fields.length == 0) {
         //console.log(page, start, limit);
@@ -138,7 +141,7 @@ var getEventGroupMembers = function(fields, search, page, limit, cb) {
         if (fields.length == 0) {
             registrants[0].total_entries = rows[0].count;
             //console.log(page, start, limit);
-            sql = "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix "+
+            sql = "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
                   " FROM group_members"+
                   " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
                   " LEFT JOIN event ON group_members.event_id = event.eventId"+
@@ -154,9 +157,10 @@ var getEventGroupMembers = function(fields, search, page, limit, cb) {
                   " WHERE (group_members.confirmnum LIKE ? OR biller.confirmNum LIKE ?)AND biller.status != -1"+
                   " LIMIT "+start+","+limit;
             vars.push("%"+search+"%", "%"+search+"%");
+            console.log(sql, vars);
         } else if (underscore.indexOf(fields, "registrantid") !== -1) {
             registrants[0].total_entries = rows.length;
-            sql = "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix "+
+            sql = "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
               " FROM group_members"+
               " LEFT JOIN event ON group_members.event_id = event.eventId"+
               " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
@@ -164,7 +168,7 @@ var getEventGroupMembers = function(fields, search, page, limit, cb) {
             vars.push(search);
         } else {
             registrants[0].total_entries = rows.length;
-            sql = "(SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix "+
+            sql = "(SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
                   " FROM event_fields  "+
                   " LEFT JOIN member_field_values ON (event_fields.local_id = member_field_values.field_id AND event_fields.event_id = member_field_values.event_id) "+
                   " LEFT JOIN group_members ON (member_field_values.member_id = group_members.groupMemberId  AND member_field_values.event_id = group_members.event_id)"+
@@ -184,7 +188,7 @@ var getEventGroupMembers = function(fields, search, page, limit, cb) {
                 }
             });
             sql += ")) UNION (";
-            sql += "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix "+
+            sql += "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
                   " FROM event_fields  "+
                   " LEFT JOIN biller_field_values ON (event_fields.local_id = biller_field_values.field_id AND event_fields.event_id = biller_field_values.event_id) "+
                   " LEFT JOIN group_members ON (biller_field_values.user_id = group_members.groupUserId AND biller_field_values.event_id = group_members.event_id)"+
@@ -208,10 +212,10 @@ var getEventGroupMembers = function(fields, search, page, limit, cb) {
         //console.log(sql);
         connection.query(sql, vars, function(err, rows) {
             if (err) throw err;
-            //console.log(rows.length);
+            console.log(rows.length);
             if (rows.length > 0) {
                 console.log("Total Registrants:", registrants[0]);
-                processGroupMembers(rows, registrants, 0, cb);
+                processGroupMembers(extra, rows, registrants, 0, cb);
             } else {
                 console.log("Total Registrants: 0");
                 registrants[0].total_entries = 0;
@@ -221,7 +225,7 @@ var getEventGroupMembers = function(fields, search, page, limit, cb) {
     });
 }
 
-var processGroupMembers = function(members, registrants, index, cb) {
+var processGroupMembers = function(extra, members, registrants, index, cb) {
     var sql = "",
         index = index || 0,
         member = members[index],
@@ -280,11 +284,14 @@ var processGroupMembers = function(members, registrants, index, cb) {
           " FROM group_members"+
           " WHERE groupUserId = ? AND event_id = ?;"+
           " SELECT * FROM event_fields WHERE event_id = ? AND badge_order > 0 ORDER BY badge_order ASC;"+
-          " SELECT * FROM event_fees WHERE event_id = ? AND user_id = ? ORDER BY id ASC;"+
+          " SELECT * FROM event_fees LEFT JOIN biller ON event_fees.user_id = biller.user_id WHERE event_fees.event_id = ? AND event_fees.user_id = ? ORDER BY event_fees.id ASC;"+
           " SELECT * FROM biller WHERE eventId = ? AND userId = ? ORDER BY id ASC;"+
           " SELECT * FROM event WHERE eventId = ?;"+
           " SELECT * FROM event_fields WHERE event_id = ? ORDER BY ordering ASC;";
-
+    if (extra) {
+        sql += " SELECT * FROM transactions WHERE invoiceNumber = ? ORDER BY submitTimeUTC ASC;";
+        vars.push(member.billerConfirm);
+    }
     //console.log(sql);
     connection.query(sql, vars, function(err, results) {
         if (err) throw err;
@@ -329,7 +336,7 @@ var processGroupMembers = function(members, registrants, index, cb) {
                 reg.fields.infoField += '<i class="icon-remove icon-large" style="color: #b94a48;"></i>';
                 reg.fields.manageField += '<a href="#" class="checkinRegistrant">Check In</a>';
             }
-            reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li></ul></div>';
+            reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
             results[7].forEach(function(row, index) {
                 var schemaRow = {
                     "title": row.label,
@@ -402,13 +409,18 @@ var processGroupMembers = function(members, registrants, index, cb) {
                 reg.fields.infoField += '&nbsp; <i class="icon-money icon-large" style="color: #b94a48;"></i>';
             }
             reg.payment = results[4];
+            if (extra) {
+                console.log("credit card");
+                console.log(results[8]);
+                reg.creditCardTrans = results[8];
+            }
             //console.log(reg);
             registrants[1].push(reg);
         }
         index++;
         //console.log(index);
         if (members.length >= (index + 1)) {
-            processGroupMembers(members, registrants, index, cb);
+            processGroupMembers(extra, members, registrants, index, cb);
         } else {
             cb(registrants);
         }
@@ -716,6 +728,70 @@ exports.genBadge = function(req, res) {
 
 };
 
+exports.genReceipt = function(req, res) {
+
+    var id = req.params.id,
+        action = req.params.action,
+        resource = res,
+        downloadCallback = function(html) {
+            //if (err) console.log(err);
+            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+            resource.writeHead(200, { 'Content-type': 'text/html' });
+            resource.write(html, 'utf-8');
+            resource.end('\n');
+        },
+        printCallback = function(pdf) {
+            var printer = ipp.Printer("http://mediaserver.local.:631/printers/HP_HP_Photosmart_8400_series");
+            var msg = {
+                "operation-attributes-tag": {
+                    "requesting-user-name": "Station",
+                    "job-name": "Badge Print Job",
+                    "document-format": "application/pdf"
+                },
+                data: pdf
+            };
+            printer.execute("Print-Job", msg, function(err, res){
+                resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+                resource.writeHead(200, { 'Content-type': 'application/json' });
+                resource.write(JSON.stringify(res), 'utf-8');
+                resource.end('\n');
+                console.log(res);
+            });
+        },
+        registrantCallback = function(registrants) {
+            var sql = "SELECT * FROM event_badge WHERE eventId = ?",
+                vars = [registrants[1][0].event_id]
+
+            connection.query(sql, vars, function(err, rows) {
+                if (err) throw err;
+                /*
+                if (action == "print") {
+                    createBadge(registrants[1][0], rows[0].template, printCallback);
+                } else if (action == "download") {
+                    createBadge(registrants[1][0], rows[0].template, downloadCallback);
+                }
+                */
+                var pageBuilder = handlebars.compile(receipt),
+                    html = pageBuilder(registrants[1][0]);
+
+                downloadCallback(html);
+            });
+        };
+
+    /**
+    if (typeof req.session.user_id === 'undefined') {
+        res.writeHead(401, { 'Content-type': 'text/html' });
+        res.end();
+        return;
+    }
+    **/
+    console.log("[genBadge] session id:", req.session.id);
+    console.log("Badge action:", action);
+    getEventGroupMembers(["registrantid"], id, 0, 20, registrantCallback, true);
+
+
+};
+
 exports.getRegistrant = function(req, res) {
     var id = req.params.id,
         callback = function(registrants) {
@@ -886,6 +962,12 @@ exports.addRegistrant = function(req, res) {
                             values[field.name] = fValues.indexOf(values[field.name]);
                         }
                         vars.push(values[field.name], values.eventId, field.local_id, oldVars.groupMemberId);
+                        sql += "INSERT INTO biller_field_values SET value = ?, event_id = ?, field_id = ?, user_id = ?; ";
+                        if (field.values) {
+                            var fValues = field.values.split("|");
+                            values[field.name] = fValues.indexOf(values[field.name]);
+                        }
+                        vars.push(values[field.name], values.eventId, field.local_id, oldVars.groupUserId);
                         //console.log(values.fields[field.name], values.event_id, field.local_id, values.local_id);
                     }
                 });
@@ -1006,51 +1088,8 @@ exports.makePayment = function(req, res) {
                     successCallback({dbResult:result});
                 });
             });
-
         });
-    } else if (values.type == "swipe") {
-        var qs = {
-            x_cp:1.0,
-            x_login: opts.configs.authorizenet.id,
-            x_market_type:2,
-            x_device_type:8,
-            x_amount: transAction.amount,
-            x_tran_key: opts.configs.authorizenet.key,
-            x_track1: transAction.payment.trackData.track1,
-            x_type:'AUTH_CAPTURE',
-            x_first_name: transAction.billTo.firstName,
-            x_last_name: transAction.billTo.lastName,
-            x_address: transAction.billTo.address,
-            x_city: transAction.billTo.city,
-            x_state: transAction.billTo.state,
-            x_zip: transAction.billTo.zip,
-            x_email: transAction.customer.email,
-            x_invoice_num: transAction.order.invoiceNumber,
-            x_ship_to_first_name: transAction.shipTo.firstName,
-            x_ship_to_last_name: transAction.shipTo.lastName,
-            x_ship_to_address: transAction.shipTo.address,
-            x_ship_to_city: transAction.shipTo.city,
-            x_ship_to_state: transAction.shipTo.state,
-            x_ship_to_zip: transAction.shipTo.zip,
-            x_test_request: 1,
-        },
-        payOpts = {
-            url: "https://cardpresent.authorize.net/gateway/transact.dll",
-            qs: qs
-        };
-
-        request(payOpts, function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-                var json = parser.toJson(body);
-                console.log(json); // Print the response
-                res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-                res.writeHead(200, { 'Content-type': 'application/json' });
-                res.write(JSON.stringify(json), 'utf-8');
-                res.end('\n');
-            }
-        });
-
-    } else {
+      } else if (values.type != "check") {
 
         payments.createTransaction(transAction, function (err, results){
             console.log(results);

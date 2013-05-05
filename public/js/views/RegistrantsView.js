@@ -106,6 +106,8 @@ var RegistrantsView = Backbone.View.extend({
                 });
             } else if (e.target.className == "downloadBadge") {
                 window.open("registrant/"+model.id+"/badge/download", '_blank');
+            } else if (e.target.className == "viewReceipt") {
+                window.open("registrant/"+model.id+"/receipt", '_blank');
             } else if (e.target.className == "editRegistrant") {
                 App.Router.navigate("registrant/"+model.id, true);
             } else if (e.target.className == "checkinRegistrant") {

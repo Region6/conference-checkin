@@ -174,14 +174,15 @@ var AcceptPaymentView = Backbone.View.extend({
                 firstname = $.trim(ccData.first_name || this.parent.model.get("firstname")),
                 lastname = $.trim(ccData.last_name || this.parent.model.get("lastname")),
                 expiration = ccData.expiration.slice(2) + "/" + ccData.expiration.slice(0,-2);
-            var trackData = {
-                "trackData" : {
-                    "track1": ccData.track1.raw
+            var creditCard = {
+                "creditCard" : {
+                    "cardNumber": ccData.number,
+                    "expirationDate": expiration
                 }
             };
             transaction.payment = _.extend(
                 transaction.payment,
-                trackData
+                creditCard
             );
         } else if("checkNumber" in values) {
             type = "check";
@@ -229,10 +230,12 @@ var AcceptPaymentView = Backbone.View.extend({
             "state": values.state || this.parent.model.get("state"),
             "zip": values.zip || this.parent.model.get("zipcode")
         };
-        transaction.billTo = _.extend(
-            transaction.billTo,
-            address
-        );
+        if (("swipe" in values) === false) {
+            transaction.billTo = _.extend(
+                transaction.billTo,
+                address
+            );
+        }
         transaction.shipTo = _.extend(
             transaction.shipTo,
             address
@@ -241,8 +244,12 @@ var AcceptPaymentView = Backbone.View.extend({
         this.model.set({registrant: this.parent.model, transaction:transaction, type: type});
         this.model.save({}, {success: function(model, response, options) {
             console.log(response);
-            view.parent.savedRegistrant();
-            //modal.close();
+            view.parent.fetch("payment");
+            if ("code" in response) {
+                view.parent.errors = response.transactionResponse.errors;
+                view.parent.renderError();
+            }
+            modal.close();
         }});
     }
 

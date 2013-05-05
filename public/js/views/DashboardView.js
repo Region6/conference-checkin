@@ -51,6 +51,7 @@ var DashboardView = Backbone.View.extend({
         e.preventDefault();
         var term = $("#searchText", this.$el).val(),
             category = $("#category", this.$el).val();
+        App.Models.registrants.state.currentPage = 0;
         App.Models.registrants.fetch({ data: { category: category, term: term } });
     },
 

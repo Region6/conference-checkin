@@ -1,5 +1,5 @@
 <td>
-    {{#is checked_in 1}}
+    {{#is attend 1}}
     <i class="icon-ok icon-large" style="color: #468847;"></i>
     {{else}}
     <i class="icon-remove icon-large" style="color: #b94a48;"></i>
@@ -30,11 +30,11 @@
                 <a href="#">Edit</a>
             </li>
             {{#is attend 1}}
-                <li class="checkout">
+                <li class="checkLinkedOut">
                     <a href="#">Check Out</a>
                 </li>
             {{else}}
-                <li class="checkin">
+                <li class="checkLinkedIn">
                     <a href="#">Check In</a>
                 </li>
             {{/is}}
