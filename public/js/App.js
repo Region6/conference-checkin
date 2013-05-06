@@ -47,6 +47,10 @@ var App = {
                 }
 
                 //this.Models.registrants.unshift(data);
+            } else if (data.objectType == "updates") {
+                if (data.modType == "checkedIn") {
+                    $(".checkedInNumber").text(data.objectId);
+                }
             }
         }
         /*

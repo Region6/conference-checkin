@@ -1,12 +1,13 @@
 var DashboardView = Backbone.View.extend({
     events: {
         "click .search"             :   "search",
+        "click .clear"              :   "clearSearch",
         "click .addNewRegistrant"   :   "addNewRegistrant",
         "keypress #searchText"      :   "searchOnEnter"
     },
 
     initialize: function() {
-        _.bindAll(this, 'fetch', 'render', 'unrender', "addDocument", "search", "searchOnEnter", "addNewRegistrant");
+        _.bindAll(this, 'fetch', 'render', 'unrender', "addDocument", "search", "searchOnEnter", "addNewRegistrant", "clearSearch");
 
         this.registrantsView = new RegistrantsView({parent: this});
         //this.timelineView = new TimelineView({parent: this});
@@ -58,6 +59,10 @@ var DashboardView = Backbone.View.extend({
     searchOnEnter: function(e) {
         if (e.keyCode != 13) return;
         this.search(e);
+    },
+
+    clearSearch: function(e) {
+        $("#searchText", this.$el).val("");
     },
 
     unrender: function () {

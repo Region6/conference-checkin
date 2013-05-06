@@ -939,8 +939,10 @@ exports.updateRegistrant = function(req, res) {
     if ("attend" in values) {
         if (values.attend) {
             logAction(sid, "registrant", id, "attend", "Registrant checked in");
+            updateCheckedIn();
         } else {
             logAction(sid, "registrant", id, "attend", "Registrant checked out");
+            updateCheckedIn();
         }
     }
 
@@ -1204,6 +1206,15 @@ exports.makePayment = function(req, res) {
         });
     }
 
+}
+
+var updateCheckedIn = function() {
+    var sql = "SELECT COUNT(id) as count FROM group_members WHERE attend = 1";
+    connection.query(sql, function(err, rows) {
+        if (err) console.log(err);
+        console.log(rows);
+        logAction(0, "updates", rows[0].count, "checkedIn", "Number checked in");
+    });
 }
 
 //Helpers
