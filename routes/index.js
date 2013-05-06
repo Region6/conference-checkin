@@ -1178,6 +1178,7 @@ exports.makePayment = function(req, res) {
                                 sql = "INSERT INTO"
                             }
                             sql += " event_fees SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ? WHERE event_id = ? AND user_id = ?";
+                            console.log(sql, vars);
                             connection.query(sql, vars, function(err, result) {
                                 if (err) console.log("Insert Event Fees:", err);
                                 console.log(result);
