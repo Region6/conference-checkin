@@ -213,7 +213,7 @@ var AcceptPaymentView = Backbone.View.extend({
                 "invoiceNumber": this.parent.model.get("confirmation")
             },
             "customer": {
-                "email": "voss.matthew@gmail.com"//this.parent.model.get("email")
+                "email": this.parent.model.get("email")
             },
             "billTo":{},
             "shipTo":{}

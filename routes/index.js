@@ -18,6 +18,7 @@ var fs = require('fs'),
     authnet = require('authnet'),
     request = require('request'),
     parser = require('xml2json'),
+    NodePDF = require('nodepdf'),
     Swag = require('../vendors/swag'),
     svgHeader = fs.readFileSync("./header.svg", "utf8"),
     receipt = fs.readFileSync("./public/templates/receipt.html", "utf8"),
@@ -348,7 +349,7 @@ var processGroupMembers = function(extra, members, registrants, index, cb) {
                 reg.fields.infoField += '<i class="icon-remove icon-large" style="color: #b94a48;"></i>';
                 reg.fields.manageField += '<a href="#" class="checkinRegistrant">Check In</a>';
             }
-            reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
+            reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><a href="#" class="printReceipt">Print Receipt</a></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
             results[7].forEach(function(row, index) {
                 var schemaRow = {
                     "title": row.label,
@@ -747,6 +748,8 @@ exports.genReceipt = function(req, res) {
     var id = req.params.id,
         action = req.params.action,
         resource = res,
+        receiptFileNameHtml = "",
+        receiptFileNamePdf = "",
         downloadCallback = function(html) {
             //if (err) console.log(err);
             res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
@@ -755,7 +758,8 @@ exports.genReceipt = function(req, res) {
             resource.end('\n');
         },
         printCallback = function(pdf) {
-            var printer = ipp.Printer("http://mediaserver.local.:631/printers/HP_HP_Photosmart_8400_series");
+            console.log(printerUrl);
+            var printer = ipp.Printer(printerUrl.receipt.url);
             var msg = {
                 "operation-attributes-tag": {
                     "requesting-user-name": "Station",
@@ -787,8 +791,35 @@ exports.genReceipt = function(req, res) {
                 */
                 var pageBuilder = handlebars.compile(receipt),
                     html = pageBuilder(registrants[1][0]);
+                if (action == "view") {
+                    downloadCallback(html);
+                } else {
+                    var random = crypto.randomBytes(4).readUInt32LE(0);
+                    receiptFileNameHtml = path.normalize(__dirname + '/../tmp/receipt.'+random+'.html');
+                    receiptFileNamePdf = path.normalize('receipt.'+random+'.pdf');
+                    fs.writeFile(receiptFileNameHtml, html, function(err) {
+                        if (err) console.log(err);
+                        var pdf = new NodePDF(receiptFileNameHtml, receiptFileNamePdf, {width:670, height:1160});
 
-                downloadCallback(html);
+                        pdf.on('error', function(msg){
+                            console.log(msg);
+                        });
+
+                        pdf.on('done', function(pathToFile){
+                            console.log(pathToFile);
+                            fs.readFile(pathToFile, function (err, data) {
+                                if (err) console.log(err);
+                                fs.unlink(pathToFile, function(err) {
+                                    if (err) console.log(err);
+                                });
+                                fs.unlink(receiptFileNameHtml, function(err) {
+                                    if (err) console.log(err);
+                                });
+                                printCallback(data);
+                            });
+                        });
+                    });
+                }
             });
         };
 

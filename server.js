@@ -166,7 +166,7 @@ app.patch('/api/registrant/:id', routes.updateRegistrant);
 app.get('/registrant/:id/badge/:action', routes.genBadge);
 
 // Generate Receipt
-app.get('/registrant/:id/receipt', routes.genReceipt);
+app.get('/registrant/:id/receipt/:action', routes.genReceipt);
 
 //API:Events
 app.get('/api/events', routes.getEvents);

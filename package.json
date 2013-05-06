@@ -24,7 +24,8 @@
         "ipp": "latest",
         "authnet": "git://github.com/mattvoss/authnet.git",
         "request": "latest",
-        "xml2json": "latest"
+        "xml2json": "latest",
+        "nodepdf": "latest"
     },
     "scripts": {
         "postinstall": "node bundler.js"

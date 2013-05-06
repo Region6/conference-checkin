@@ -162,12 +162,15 @@ table td, table th { border: 1px solid black; padding: 5px; }
     <div id="identity">
 
         <div id="header">
-            {{#is paid 1}}Receipt{{else}}Invoice{{/is}}
+            {{#is payment.0.paid_amount 0}}Invoice{{else}}Receipt{{/is}}
         </div>
 
         <div id="paymentAddress">
 
-            Address Goes here
+            Region VI VPPPA<br />
+            5120 Stagecoach Rd.<br />
+            College Station, TX<br />
+            77845
 
         </div>
 
@@ -245,10 +248,6 @@ table td, table th { border: 1px solid black; padding: 5px; }
                 </th>
 
                 <th>
-                    Description
-                </th>
-
-                <th>
                     Unit Cost
                 </th>
 
@@ -264,11 +263,36 @@ table td, table th { border: 1px solid black; padding: 5px; }
 
             <tr>
 
-                <td colspan="3" class="blank"></td>
+                <td>
+                    &nbsp;
+                </td>
+
+                <td>
+                    {{event.title}}
+                </td>
+
+                <td>
+                    ${{toFixed payment.0.fee 2}}
+                </td>
+
+                <td>
+                    1
+                </td>
+
+                <td>
+                    ${{toFixed payment.0.fee 2}}
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <td colspan="2" class="blank"></td>
                 <td colspan="2" class="total-line">Total</td>
                 <td class="total-value">
 
-                    <div id="total">${total}}</div>
+                    <div id="total">${{toFixed payment.0.fee 2}}</div>
 
                 </td>
 
@@ -276,11 +300,11 @@ table td, table th { border: 1px solid black; padding: 5px; }
 
             <tr>
 
-                <td colspan="3" class="blank"></td>
+                <td colspan="2" class="blank"></td>
                 <td colspan="2" class="total-line">Amount Paid</td>
                 <td class="total-value">
 
-                    <div id="paid">${{paid}}</div>
+                    <div id="paid">${{toFixed payment.0.paid_amount 2}}</div>
 
                 </td>
 
@@ -289,12 +313,12 @@ table td, table th { border: 1px solid black; padding: 5px; }
 
             <tr>
 
-                <td colspan="3" class="blank"></td>
+                <td colspan="2" class="blank"></td>
                 <td colspan="2" class="total-line-balance">Balance Due</td>
                 <td class="total-value">
 
                     <div id="due">
-                            ${{balance}}
+                            $0.00
                     </div>
 
                 </td>
@@ -321,7 +345,7 @@ table td, table th { border: 1px solid black; padding: 5px; }
                 <tr>
 
                     <td class="payment-head">Amount</td>
-                    <td>{{toFixed fee 2}}</td>
+                    <td>${{toFixed fee 2}}</td>
 
                 </tr>
                 <tr>
@@ -354,7 +378,7 @@ table td, table th { border: 1px solid black; padding: 5px; }
                 <tr>
 
                     <td class="payment-head">Amount</td>
-                    <td>{{toFixed this.settleAmount 2}}</td>
+                    <td>${{toFixed this.settleAmount 2}}</td>
 
                 </tr>
                 <tr>

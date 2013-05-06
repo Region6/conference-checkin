@@ -4,8 +4,9 @@ var RegistrantView = Backbone.View.extend({
         "click #btn-submit"         :   "saveRegistrant",
         "click .acceptPayment"      :   "acceptPayment",
         "click .printBadge"         :   "printBadge",
-        "click .downloadBadge"      :   "downloadBadge",
-        "click .printInvoice"       :   "printInvoice",
+        "click .downloaewdBadge"    :   "downloadBadge",
+        "click .printReceipt"       :   "printReceipt",
+        "click .viewReceipt"        :   "viewReceipt",
         "click .checkIn"            :   "checkIn",
         "click .checkOut"           :   "checkOut",
         "click .changeConfirmation" :   "changeConfirmation"
@@ -19,7 +20,7 @@ var RegistrantView = Backbone.View.extend({
             'acceptPayment',
             'printBadge',
             'downloadBadge',
-            'printInvoice',
+            'printReceipt',
             'checkIn',
             'checkOut',
             'savedRegistrant',
@@ -164,8 +165,16 @@ var RegistrantView = Backbone.View.extend({
         window.open(this.model.id+"/badge/download", '_blank');
     },
 
-    printInvoice: function(e) {
+    printReceipt: function(e) {
+        $.getJSON("/registrant/"+this.model.id+"/receipt/print", function(data) {
+            console.log(data);
+        });
+    },
 
+    viewReceipt: function(e) {
+        $.getJSON("/registrant/"+this.model.id+"/receipt/view", function(data) {
+            console.log(data);
+        });
     },
 
     checkIn: function(e) {
