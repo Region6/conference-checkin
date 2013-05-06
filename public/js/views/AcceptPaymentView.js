@@ -251,7 +251,7 @@ var AcceptPaymentView = Backbone.View.extend({
                     view.parent.renderError();
                 }
             }
-            //modal.close();
+            view.close();
         }});
     }
 

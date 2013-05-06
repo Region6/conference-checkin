@@ -349,7 +349,7 @@ var processGroupMembers = function(extra, members, registrants, index, cb) {
                 reg.fields.infoField += '<i class="icon-remove icon-large" style="color: #b94a48;"></i>';
                 reg.fields.manageField += '<a href="#" class="checkinRegistrant">Check In</a>';
             }
-            reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><a href="#" class="printReceipt">Print Receipt</a></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
+            reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><li><a href="#" class="printReceipt">Print Receipt</a></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
             results[7].forEach(function(row, index) {
                 var schemaRow = {
                     "title": row.label,
