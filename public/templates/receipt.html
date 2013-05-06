@@ -345,13 +345,13 @@ table td, table th { border: 1px solid black; padding: 5px; }
                 <tr>
 
                     <td class="payment-head">Amount</td>
-                    <td>${{toFixed fee 2}}</td>
+                    <td>${{toFixed this.fee 2}}</td>
 
                 </tr>
                 <tr>
 
                     <td class="payment-head">Check #</td>
-                    <td>{{transaction_id}}</td>
+                    <td>{{this.transaction_id}}</td>
 
                 </tr>
                 <tr>
@@ -359,7 +359,7 @@ table td, table th { border: 1px solid black; padding: 5px; }
                     <td class="payment-head">Date</td>
                     <td>
                         <div id='date'>
-                            {{formatDate register_date "%m/%d/%Y"}}
+                            {{formatDate this.register_date "%m/%d/%Y"}}
                         </div>
                     </td>
 

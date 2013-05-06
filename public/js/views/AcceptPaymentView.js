@@ -245,13 +245,13 @@ var AcceptPaymentView = Backbone.View.extend({
         this.model.save({}, {success: function(model, response, options) {
             console.log(response);
             view.parent.fetch("payment");
-            if ("code" in response) {
+            if ( ("code" in response) || (response.transactionResponse.responseCode == 2) ) {
                 if ("transactionResponse" in response) {
                     view.parent.errors = response.transactionResponse.errors;
                     view.parent.renderError();
                 }
             }
-            view.trigger('cancel');
+            view.unrender();
         }});
     }
 
