@@ -4,7 +4,7 @@ var RegistrantView = Backbone.View.extend({
         "click #btn-submit"         :   "saveRegistrant",
         "click .acceptPayment"      :   "acceptPayment",
         "click .printBadge"         :   "printBadge",
-        "click .downloaewdBadge"    :   "downloadBadge",
+        "click .downloadBadge"      :   "downloadBadge",
         "click .printReceipt"       :   "printReceipt",
         "click .viewReceipt"        :   "viewReceipt",
         "click .checkIn"            :   "checkIn",
