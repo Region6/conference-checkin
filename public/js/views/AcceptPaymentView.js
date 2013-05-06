@@ -246,8 +246,10 @@ var AcceptPaymentView = Backbone.View.extend({
             console.log(response);
             view.parent.fetch("payment");
             if ("code" in response) {
-                view.parent.errors = response.transactionResponse.errors;
-                view.parent.renderError();
+                if ("transactionResponse" in response) {
+                    view.parent.errors = response.transactionResponse.errors;
+                    view.parent.renderError();
+                }
             }
             //modal.close();
         }});

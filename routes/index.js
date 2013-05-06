@@ -1180,6 +1180,8 @@ exports.makePayment = function(req, res) {
                             sql += " event_fees SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ?";
                             if (rows.length > 0) {
                                 sql += " WHERE event_id = ? AND user_id = ?";
+                            } else {
+                                sql += ", event_id = ?, user_id = ?"
                             }
                             //console.log(sql, vars);
                             connection.query(sql, vars, function(err, result) {
