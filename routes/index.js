@@ -285,15 +285,15 @@ var processGroupMembers = function(extra, members, registrants, index, cb) {
           " (SELECT value "+
           " FROM member_field_values "+
           " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'firstname' AND member_field_values.member_id = group_members.groupMemberId) as firstname,"+
+          " WHERE event_fields.event_id = ? AND event_fields.class = 'firstname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as firstname,"+
           " (SELECT value "+
           " FROM member_field_values "+
           " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'lastname' AND member_field_values.member_id = group_members.groupMemberId) as lastname,"+
+          " WHERE event_fields.event_id = ? AND event_fields.class = 'lastname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as lastname,"+
           " (SELECT value "+
           " FROM member_field_values "+
           " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'company' AND member_field_values.member_id = group_members.groupMemberId) as company"+
+          " WHERE event_fields.event_id = ? AND event_fields.class = 'company' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as company"+
           " FROM group_members"+
           " WHERE groupUserId = ? AND event_id = ?;"+
           " SELECT * FROM event_fields WHERE event_id = ? AND badge_order > 0 ORDER BY badge_order ASC;"+
@@ -856,52 +856,61 @@ exports.updateRegistrantValues = function(req, res) {
     var sid = req.session.id,
         id = req.params.id,
         values = req.body,
-        sql = "SELECT * FROM event_fields WHERE event_id = ?;",
-        vars = [values.event_id],
+        sql = "DELETE member_field_values WHERE event_id = ? AND member_id = ?; ",
+        vars = [values.event_id, values.local_id],
         updateSelf = ['confirmnum'];
 
-    console.log("[updateRegistrantValues] session id:", req.session.id);
-    console.log("id", id);
-    //console.log(values);
     connection.query(sql, vars, function(err, rows) {
-        var vars = [],
-            sql = "";
-        if (err) throw err;
-        rows.forEach(function(field, index) {
+        sql = "SELECT * FROM event_fields WHERE event_id = ?;",
+        vars = [values.event_id];
 
-            if (typeof values.fields[field.name] != "undefined") {
-                sql += "UPDATE member_field_values SET value = ? WHERE event_id = ? AND field_id = ? AND member_id = ?;";
-                if (field.values) {
-                    var fValues = field.values.split("|");
-                    values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
-                }
-                vars.push(values.fields[field.name], values.event_id, field.local_id, values.local_id);
-                //console.log(values.fields[field.name], values.event_id, field.local_id, values.local_id);
-                sql += "UPDATE biller_field_values SET value = ? WHERE event_id = ? AND field_id = ? AND user_id = ?;";
-                if (field.values) {
-                    var fValues = field.values.split("|");
-                    values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
-                }
-                vars.push(values.fields[field.name], values.event_id, field.local_id, values.biller_id);
-            }
-        });
-
-        updateSelf.forEach(function(field, index) {
-            if (typeof values.fields[field] != "undefined") {
-                sql += "UPDATE group_members SET "+field+" = ? WHERE event_id = ? AND groupMemberId = ?;";
-                vars.push(values.fields[field], values.event_id, values.local_id);
-            }
-
-        });
-
-        connection.query(sql, vars, function(err, results) {
+        console.log("[updateRegistrantValues] session id:", req.session.id);
+        console.log("id", id);
+        //console.log(values);
+        connection.query(sql, vars, function(err, rows) {
+            var vars = [],
+                sql = "";
             if (err) throw err;
-            //console.log(results);
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, { 'Content-type': 'application/json' });
-            res.write(JSON.stringify(values), 'utf-8');
-            res.end('\n');
-            logAction(sid, "registrant", id, "updated", "Registrant updated");
+            rows.forEach(function(field, index) {
+
+                if (typeof values.fields[field.name] != "undefined") {
+                    sql += "INSERT INTO member_field_values SET value = ?, event_id = ?, field_id = ?, member_id = ?; ";
+                    if (field.values) {
+                        var fValues = field.values.split("|");
+                        values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
+                    }
+                    vars.push(values.fields[field.name], values.event_id, field.local_id, values.local_id);
+                    //console.log(values.fields[field.name], values.event_id, field.local_id, values.local_id);
+                    /*
+                    sql += "INSERT INTO biller_field_values SET value = ?, event_id = ?, field_id = ?, user_id = ?; ";
+                    if (field.values) {
+                        var fValues = field.values.split("|");
+                        values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
+                    }
+
+                    vars.push(values.fields[field.name], values.event_id, field.local_id, values.biller_id);
+                    */
+                }
+            });
+
+            updateSelf.forEach(function(field, index) {
+                if (typeof values.fields[field] != "undefined") {
+                    sql += "UPDATE group_members SET "+field+" = ? WHERE event_id = ? AND groupMemberId = ?;";
+                    vars.push(values.fields[field], values.event_id, values.local_id);
+                }
+
+            });
+
+            //console.log(sql, vars);
+            connection.query(sql, vars, function(err, results) {
+                if (err) throw err;
+                //console.log(results);
+                res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+                res.writeHead(200, { 'Content-type': 'application/json' });
+                res.write(JSON.stringify(values), 'utf-8');
+                res.end('\n');
+                logAction(sid, "registrant", id, "updated", "Registrant updated");
+            });
         });
     });
 };
@@ -1160,7 +1169,7 @@ exports.makePayment = function(req, res) {
                         sql = "SELECT * FROM event_fees WHERE event_id = ? AND user_id = ?";
                         var vars = [values.registrant.event_id, values.registrant.biller_id];
                         connection.query(sql, vars, function(err, rows) {
-                            if (err) console.log(err);
+                            if (err) console.log("SELECT Event Fees:", err);
                             console.log(rows);
                             var vars = [transAction.amount, transAction.amount, transAction.amount, 1, "authorizenet", values.registrant.event_id, values.registrant.biller_id];
                             if (rows.length > 0) {
@@ -1170,7 +1179,7 @@ exports.makePayment = function(req, res) {
                             }
                             sql += " event_fees SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ? WHERE event_id = ? AND user_id = ?";
                             connection.query(sql, vars, function(err, result) {
-                                if (err) console.log(err);
+                                if (err) console.log("Insert Event Fees:", err);
                                 console.log(result);
                                 saveTransaction(transactionDetails, successCallback);
                             });
