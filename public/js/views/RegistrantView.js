@@ -172,9 +172,7 @@ var RegistrantView = Backbone.View.extend({
     },
 
     viewReceipt: function(e) {
-        $.getJSON("/registrant/"+this.model.id+"/receipt/view", function(data) {
-            console.log(data);
-        });
+        window.open(this.model.id+"/receipt/view", '_blank');
     },
 
     checkIn: function(e) {
