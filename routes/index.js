@@ -875,7 +875,7 @@ exports.updateRegistrantValues = function(req, res) {
 
                 if (typeof values.fields[field.name] != "undefined") {
                     sql += "INSERT INTO member_field_values SET value = ?, event_id = ?, field_id = ?, member_id = ?; ";
-                    if (field.values) {
+                    if (field.values && (field.type == 4 || field.type == 1)) {
                         var fValues = field.values.split("|");
                         values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
                     }
