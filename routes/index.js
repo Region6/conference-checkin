@@ -674,6 +674,9 @@ exports.registrants = function(req, res) {
     } else if (category == "confirmation") {
         cat = ["confirmation"];
     } else if (category == "registrantid") {
+        if (search.indexOf("-") !== -1) {
+            search = search.split("-")[1];
+        }
         cat = ["registrantid"];
     }
     getEventGroupMembers(cat, search, page, limit, callback);
