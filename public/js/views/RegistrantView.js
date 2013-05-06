@@ -155,7 +155,7 @@ var RegistrantView = Backbone.View.extend({
     },
 
     printBadge: function(e) {
-        $.getJSON("/registrant/"+this.model.id+"/badge/print", function(data) {
+        $.getJSON("/"+this.model.id+"/badge/print", function(data) {
             console.log(data);
         });
     },
