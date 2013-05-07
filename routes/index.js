@@ -859,7 +859,7 @@ exports.updateRegistrantValues = function(req, res) {
     var sid = req.session.id,
         id = req.params.id,
         values = req.body,
-        sql = "DELETE member_field_values WHERE event_id = ? AND member_id = ?; ",
+        sql = "DELETE FROM member_field_values WHERE event_id = ? AND member_id = ?; ",
         vars = [values.event_id, values.local_id],
         updateSelf = ['confirmnum'];
 
