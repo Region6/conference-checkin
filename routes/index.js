@@ -486,7 +486,7 @@ var createBadge = function(registrant, template, cb) {
                     }
                     y += bh;
                 }
-                svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(28,300)">'+svgBarcode;
+                svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(68,300)">'+svgBarcode;
                 svgBarcode += '</g>';
                 registrant["barcode"] = svgBarcode;
                 registrant.fields.id = registrant.registrantId;
@@ -565,7 +565,7 @@ var createBadge = function(registrant, template, cb) {
             }
             y += bh;
         }
-        svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(28,300)">'+svgBarcode;
+        svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(68,300)">'+svgBarcode;
         svgBarcode += '</g>';
         registrant["barcode"] = svgBarcode;
         registrant.fields.id = registrant.registrantId;
