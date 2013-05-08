@@ -67,6 +67,7 @@ var DashboardView = Backbone.View.extend({
 
     clearSearch: function(e) {
         $("#searchText", this.$el).val("");
+        $('#searchText', this.$el).focus();
     },
 
     unrender: function () {
