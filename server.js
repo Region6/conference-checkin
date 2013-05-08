@@ -173,7 +173,7 @@ app.get('/api/events', routes.getEvents);
 app.get('/api/events/:id/fields', routes.getEventFields);
 
 app.post('/api/payment', routes.makePayment);
-
+app.get('/api/getNumberCheckedIn', routes.getNumberCheckedIn);
 // API:Timeline
 //app.get('/json/timeline', routes.getTimeline);
 

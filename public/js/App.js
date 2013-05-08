@@ -1,7 +1,7 @@
 var App = {
 
     initialize: function() {
-        _.bindAll(this, "ioEvent");
+        _.bindAll(this, "ioEvent", "fetchCheckedIn");
 
         //Initialize Socket.IO
         this.Io = io.connect();
@@ -19,6 +19,7 @@ var App = {
             }
             sync(method, model, options);
         };
+        this.fetchCheckedIn();
         this.Models = {};
         this.Router = new Router();
         Backbone.history.start({pushState: true});
@@ -60,6 +61,12 @@ var App = {
         }
         */
 
+    },
+
+    fetchCheckedIn: function() {
+        $.getJSON('/api/getNumberCheckedIn', function(data) {
+            $(".checkedInNumber").text(data.checkedIn);
+        });
     }
 
 };
