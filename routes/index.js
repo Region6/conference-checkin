@@ -1214,7 +1214,7 @@ exports.getNumberCheckedIn = function(req, res) {
         if (err) console.log(err);
         res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
         res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write({"checkedIn": rows[0].count}, 'utf-8');
+        res.write(JSON.stringify({"checkedIn": rows[0].count}), 'utf-8');
         res.end('\n');
     });
 }
