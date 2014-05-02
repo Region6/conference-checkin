@@ -10,14 +10,14 @@
         "uglify-js": "latest",
         "express.io": "latest",
         "session.socket.io": "latest",
-        "mysql": ">=2.0.0-alpha3",
+        "mysql": "latest",
         "nodemailer": "latest",
         "async": "latest",
         "acl": "latest",
         "node-uuid": "latest",
         "glob": "latest",
         "redis": "latest",
-        "connect-redis": "latest",
+        "connect-redis": "~1.4.7",
         "connect-multi-redis": "latest",
         "handlebars": "latest",
         "pdf417": "git://github.com/mattvoss/pdf417-js.git",
@@ -25,9 +25,30 @@
         "authnet": "git://github.com/mattvoss/authnet.git",
         "request": "latest",
         "xml2json": "latest",
-        "nodepdf": "latest"
+        "nodepdf": "latest",
+        "sequelize": "latest",
+        "nconf": "latest",
+        "node-registrants": "mattvoss/node-registrants",
+        "rsvg": "latest",
+        "hummus": "latest"
     },
-    "scripts": {
-        "postinstall": "node bundler.js"
-    }
+    "devDependencies": {
+    "grunt": "latest",
+    "grunt-contrib-jshint": "latest",
+    "grunt-contrib-nodeunit": "latest",
+    "grunt-contrib-uglify": "latest",
+    "grunt-contrib-cssmin": "latest",
+    "matchdep": "latest",
+    "grunt-contrib-copy": "latest",
+    "grunt-contrib-handlebars": "latest",
+    "grunt-bower-task": "latest",
+    "grunt-contrib-concat": "latest",
+    "grunt-contrib-watch": "latest",
+    "grunt-express-server": "latest",
+    "grunt-node-inspector": "latest",
+    "grunt-json": "latest"
+  },
+  "scripts": {
+    "start": "grunt server"
+  }
 }

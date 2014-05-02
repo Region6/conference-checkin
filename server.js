@@ -5,12 +5,14 @@
 var express = require('express.io'),
     fs = require('fs'),
     path = require('path'),
+    nconf = require('nconf'),
     routes = require('./routes'),
-    ioEvents = require('./ioEvents')
+    ioEvents = require('./ioEvents'),
     redis = require("redis"),
     redisClient = redis.createClient(),
     redisStore = require('connect-redis')(express),
-    opts = {};
+    opts = {},
+    configFile, config;
 
 /*  ==============================================================
     Configuration
@@ -20,25 +22,62 @@ var express = require('express.io'),
 var salt = '20sdkfjk23';
 
 fs.exists(__dirname + '/tmp', function (exists) {
-    if (!exists) {
-        fs.mkdir(__dirname + '/tmp', function (d) {
-            console.log("temp directory created");
-        });
-    }
+  if (!exists) {
+    fs.mkdir(__dirname + '/tmp', function (d) {
+      console.log("temp directory created");
+    });
+  }
 });
 
 if (process.argv[2]) {
-    if (fs.lstatSync(process.argv[2])) {
-        config = require(process.argv[2]);
-    } else {
-        config = require(process.cwd()+'/settings.json');
-    }
+  if (fs.lstatSync(process.argv[2])) {
+    configFile = require(process.argv[2]);
+  } else {
+    configFile = process.cwd() + '/config/settings.json';
+  }
 } else {
-    config = require(__dirname + '/settings.json');
+  configFile = process.cwd()+'/config/settings.json';
 }
 
-if ("log" in config) {
-    var access_logfile = fs.createWriteStream(config.log, {flags: 'a'})
+config = nconf
+    .argv()
+    .env("__")
+    .file({ file: configFile });
+
+if (config.get("log")) {
+  var access_logfile = fs.createWriteStream(config.get("log"), {flags: 'a'});
+}
+
+if (config.get("ssl")) {
+  if (config.get("ssl:key")) {
+    opts.key = fs.readFileSync(config.get("ssl:key"));
+  }
+
+  if (config.get("ssl:cert")) {
+    opts.cert = fs.readFileSync(config.get("ssl:cert"));
+  }
+
+  if (config.get("ssl:ca")) {
+    opts.ca = [];
+    config.get("ssl:ca").forEach(function (ca, index, array) {
+        opts.ca.push(fs.readFileSync(ca));
+    });
+  }
+
+  console.log("Express will listen: https");
+}
+
+
+//Session Conf
+if (config.get("redis")) {
+    var redisConfig = config.get("redis");
+} else {
+    var redisConfig = {
+        "host": "localhost",
+        "port": "6379",
+        "ttl": 43200,
+        "db": "exhibitorAttendees"
+    };
 }
 
 if ("redis" in config) {
@@ -54,39 +93,12 @@ if ("redis" in config) {
     redisConfig.client = redisClient;
 }
 
-var cookieParser = express.cookieParser(),
-    redisSessionStore = new redisStore(redisConfig);
-
-if ("ssl" in config) {
-
-    if (config.ssl.key) {
-        opts["key"] = fs.readFileSync(config.ssl.key);
-    }
-
-    if (config.ssl.cert) {
-        opts["cert"] = fs.readFileSync(config.ssl.cert);
-    }
-
-    if (config.ssl.ca) {
-        opts["ca"] = [];
-        config.ssl.ca.forEach(function (ca, index, array) {
-            opts.ca.push(fs.readFileSync(ca));
-        });
-    }
-
-    console.log("Express will listen: https");
-
-}
-
-routes.setKey("configs", config);
-routes.initialize();
-
 var app = module.exports = express(opts);
 
 var allowCrossDomain = function(req, res, next) {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Range, Content-Disposition, Content-Description');
+    res.header('Access-Control-Allow-Methods', '*');
+    res.header('Access-Control-Allow-Headers', '*');
 
     // intercept OPTIONS method
     if ('OPTIONS' == req.method) {
@@ -98,29 +110,34 @@ var allowCrossDomain = function(req, res, next) {
 };
 
 // Configuration
-
+var oneDay = 86400000,
+    cookieParser = express.cookieParser();
 app.configure(function(){
-    if ("log" in config) {
-        app.use(express.logger({stream: access_logfile }));
-    }
-    app
-        .use(cookieParser)
-        .use(express.bodyParser())
-        .use(express.methodOverride())
-        .use(allowCrossDomain)
-        .use(express.session({
-            store: redisSessionStore,
-            secret: salt
-        }))
-        .use('/bootstrap', express.static(__dirname + '/vendors/bootstrap'))
-        .use('/css', express.static(__dirname + '/public/css'))
-        .use('/vendors', express.static(__dirname + '/vendors'))
-        .use('/js', express.static(__dirname + '/public/js'))
-        .use('/images', express.static(__dirname + '/public/images'))
-        .use('/font', express.static(__dirname + '/public/font'))
-        .use(app.router)
-        .use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-    });
+  if ("log" in config) {
+      app.use(express.logger({stream: access_logfile }));
+  }
+  app.use(cookieParser);
+  app.use(express.session({
+      store: new redisStore(redisConfig),
+      secret: salt,
+      proxy: true
+  }));
+  app.use(express.json());
+  app.use(express.urlencoded());
+  app.use(express.methodOverride());
+  app.use(allowCrossDomain);
+  //app.use('/bootstrap', express.static(__dirname + '/public/bootstrap'));
+  app.use('/css', express.static(__dirname + '/public/css', { maxAge: oneDay }));
+  app.use('/js', express.static(__dirname + '/public/js', { maxAge: oneDay }));
+  app.use('/images', express.static(__dirname + '/public/images', { maxAge: oneDay }));
+  app.use('/img', express.static(__dirname + '/public/images', { maxAge: oneDay }));
+  app.use('/fonts', express.static(__dirname + '/public/fonts', { maxAge: oneDay }));
+  app.use('/assets', express.static(__dirname + '/assets', { maxAge: oneDay }));
+  app.use('/lib', express.static(__dirname + '/lib', { maxAge: oneDay }));
+  app.use('/bower_components', express.static(__dirname + '/bower_components', { maxAge: oneDay }));
+  app.use(app.router);
+  app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
+});
 
 app.configure('development', function(){
   app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
@@ -138,14 +155,17 @@ app.configure('production', function(){
     Serve the site skeleton HTML to start the app
 =============================================================== */
 
-var port = ("port" in config) ? config.port : 3001;
+var port = (config.get("port")) ? config.get("port") : 3001;
 if ("ssl" in config) {
     var server = app.https(opts).io();
 } else {
     var server = app.http().io();
 }
-ioEvents.initialize({'app': app});
-routes.setKey("io", app.io);
+
+var routes = require('./routes');
+
+routes.setKey("configs", config);
+routes.initialize();
 
 /*  ==============================================================
     Routes
@@ -183,6 +203,7 @@ app.get('*', routes.index);
     Socket.IO Routes
 =============================================================== */
 
+routes.setKey("io", app.io);
 app.io.route('ready', ioEvents.connection);
 
 /*  ==============================================================

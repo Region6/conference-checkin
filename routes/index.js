@@ -1,4 +1,5 @@
-"use strict";
+(function(){
+  "use strict";
 
 var fs = require('fs'),
     path = require('path'),
@@ -20,16 +21,25 @@ var fs = require('fs'),
     parser = require('xml2json'),
     NodePDF = require('nodepdf'),
     Swag = require('../vendors/swag'),
+    Sequelize = require("sequelize"),
     svgHeader = fs.readFileSync("./header.svg", "utf8"),
-    receipt = fs.readFileSync("./public/templates/receipt.html", "utf8"),
+    receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8"),
+    hummus          = require('hummus'),
+    Rsvg            = require('rsvg').Rsvg,
+    Registrants = require("node-registrants"),
+    registrants,
     opts = {},
-    printerUrl = {},
+    printerUrl = {
+      "receipt": [],
+      "badge": []
+    },
     connection = null,
     client = null,
     transport = null,
     acl = null,
-    db = null,
-    reconnectTries = 0;
+    db = {},
+    reconnectTries = 0,
+    models = {} ;
 
 /**
  * usages (handlebars)
@@ -55,194 +65,392 @@ exports.setKey = function(key, value) {
 
 exports.initialize = function() {
     //Initialize Mysql
-    getConnection();
-    getPrinter();
+    //getConnection();
+
+    db.checkin = new Sequelize(
+      opts.configs.get("mysql:database"),
+      opts.configs.get("mysql:username"),
+      opts.configs.get("mysql:password"),
+      {
+          dialect: 'mysql',
+          omitNull: true,
+          host: opts.configs.get("mysql:host") || "localhost",
+          port: opts.configs.get("mysql:port") || 3306,
+          pool: { maxConnections: 5, maxIdleTime: 30},
+          define: {
+            freezeTableName: true,
+            timestamps: false
+          }
+    });
+
+    registrants = Registrants.init({
+      "host": opts.configs.get("mysql:host") || "localhost",
+      "username": opts.configs.get("mysql:username"),
+      "password": opts.configs.get("mysql:password"),
+      "database": opts.configs.get("mysql:database"),
+      "port": opts.configs.get("mysql:port") || 3306
+    });
+
+    models.Events = db.checkin.define('event', {
+      slabId:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      local_slabId :              { type: Sequelize.INTEGER },
+      eventId:              { type: Sequelize.STRING(36) },
+      local_eventId :              { type: Sequelize.INTEGER },
+      title:              { type: Sequelize.STRING(255) },
+      dtstart:             { type: Sequelize.DATE },
+      dtend:             { type: Sequelize.DATE },
+      dtstarttime :             { type: Sequelize.TEXT },
+      dtendtime :             { type: Sequelize.TEXT },
+      latefee :          { type: Sequelize.DECIMAL(10,2) },
+      latefeedate:             { type: Sequelize.DATE },
+      email:             { type: Sequelize.TEXT },
+      max_registrations :              { type: Sequelize.INTEGER },
+      registration_type:              { type: Sequelize.STRING(50) },
+      topmsg:             { type: Sequelize.TEXT },
+      cut_off_date:             { type: Sequelize.DATE },
+      discount_type :              { type: Sequelize.INTEGER(2) },
+      discount_amount :          { type: Sequelize.DECIMAL(10,2) },
+      thksmsg:             { type: Sequelize.TEXT },
+      thksmsg_set :              { type: Sequelize.INTEGER(4) },
+      event_describe:             { type: Sequelize.TEXT },
+      event_describe_set :              { type: Sequelize.INTEGER(4) },
+      terms_conditions_set :              { type: Sequelize.INTEGER(4) },
+      terms_conditions_msg:             { type: Sequelize.TEXT },
+      category :              { type: Sequelize.INTEGER(1) },
+      max_group_size :              { type: Sequelize.INTEGER(5) },
+      ordering :              { type: Sequelize.INTEGER(7) },
+      waiting_list :              { type: Sequelize.INTEGER(1) },
+      public :              { type: Sequelize.INTEGER(1) },
+      export :              { type: Sequelize.INTEGER(2) },
+      use_discountcode :              { type: Sequelize.INTEGER(3) },
+      article_id :              { type: Sequelize.INTEGER(11) },
+      detail_link_show :              { type: Sequelize.INTEGER(2) },
+      show_registrant :              { type: Sequelize.INTEGER(4) },
+      publish :              { type: Sequelize.INTEGER(4) },
+      startdate:             { type: Sequelize.DATE },
+      bird_discount_type :              { type: Sequelize.INTEGER(2) },
+      bird_discount_amount:              { type: Sequelize.STRING(12) },
+      bird_discount_date:             { type: Sequelize.DATE },
+      payment_option :              { type: Sequelize.INTEGER(2) },
+      location_id :              { type: Sequelize.INTEGER(11) },
+      archive :              { type: Sequelize.INTEGER(2) },
+      partial_payment :              { type: Sequelize.INTEGER(2) },
+      partial_amount:              { type: Sequelize.STRING(20) },
+      partial_minimum_amount:              { type: Sequelize.STRING(20) },
+      edit_fee :              { type: Sequelize.INTEGER(2) },
+      cancelfee_enable :              { type: Sequelize.INTEGER(2) },
+      cancel_date:              { type: Sequelize.STRING(30) },
+      cancel_refund_status :              { type: Sequelize.INTEGER(1) },
+      excludeoverlap :              { type: Sequelize.INTEGER(2) },
+      pay_later_thk_msg_set :              { type: Sequelize.INTEGER(2) },
+      pay_later_thk_msg:             { type: Sequelize.TEXT },
+      thanksmsg_set :              { type: Sequelize.INTEGER(2) },
+      thanksmsg:             { type: Sequelize.TEXT },
+      change_date:              { type: Sequelize.STRING(20) },
+      detail_itemid :              { type: Sequelize.INTEGER(4) },
+      tax_enable :              { type: Sequelize.INTEGER(2) },
+      tax_amount :          { type: Sequelize.DECIMAL(8,2) },
+      payment_id :              { type: Sequelize.INTEGER(4) },
+      repetition_id :              { type: Sequelize.INTEGER(7) },
+      parent_id :              { type: Sequelize.INTEGER(7) },
+      usercreation :              { type: Sequelize.INTEGER(3) },
+      imagepath:              { type: Sequelize.STRING(255) },
+      timeformat :              { type: Sequelize.INTEGER(2) },
+      latefeetime :             { type: Sequelize.TEXT },
+      bird_discount_time :             { type: Sequelize.TEXT },
+      starttime :             { type: Sequelize.TEXT },
+      cut_off_time :             { type: Sequelize.TEXT },
+      change_time :             { type: Sequelize.TEXT },
+      cancel_time :             { type: Sequelize.TEXT },
+      user_id :              { type: Sequelize.INTEGER(7) },
+      changefee_enable :              { type: Sequelize.INTEGER(2) },
+      changefee_type :              { type: Sequelize.INTEGER(2) },
+      changefee :          { type: Sequelize.DECIMAL(8,2) },
+      cancelfee_type :              { type: Sequelize.INTEGER(2) },
+      cancelfee :          { type: Sequelize.DECIMAL(8,2) },
+      usetimecheck :              { type: Sequelize.INTEGER(1) },
+      group_registration_type:              { type: Sequelize.STRING(20) },
+      cancel_enable :              { type: Sequelize.INTEGER(1) },
+      min_group_size :              { type: Sequelize.INTEGER(4) },
+      admin_notification_set :              { type: Sequelize.INTEGER(2) },
+      admin_notification:             { type: Sequelize.TEXT },
+      partial_payment_enable :              { type: Sequelize.INTEGER(1) },
+      prevent_duplication :              { type: Sequelize.INTEGER(1) },
+      event_admin_email_set :              { type: Sequelize.INTEGER(4) },
+      event_admin_email_from_name:              { type: Sequelize.STRING(100) },
+      event_admin_email_from_email:              { type: Sequelize.STRING(100) },
+      thanks_redirection :              { type: Sequelize.INTEGER(2) },
+      thanks_redirect_url:              { type: Sequelize.STRING(255) },
+      pay_later_redirection :              { type: Sequelize.INTEGER(2) },
+      pay_later_redirect_url:              { type: Sequelize.STRING(255) },
+      timezone:              { type: Sequelize.STRING(255) },
+      registering:             { type: Sequelize.TEXT },
+      uid:              { type: Sequelize.STRING(100)},
+      usergroup:             { type: Sequelize.TEXT },
+      discount_code_usagetype :              { type: Sequelize.INTEGER(2) },
+      confirm_number_prefix:              { type: Sequelize.STRING(20) },
+      badge_prefix:              { type: Sequelize.STRING(20) },
+      reg_type:              { type: Sequelize.STRING(100) },
+      member :              { type: Sequelize.INTEGER(1) },
+      tax_exemption_allow :              { type: Sequelize.INTEGER(2) },
+      tax_code_field_type:              { type: Sequelize.STRING(20) },
+      tax_code_values:              { type: Sequelize.STRING(100) }
+    });
+
+    models.CheckinMemberFieldValues = db.checkin.define('member_field_values', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      local_id:             { type: Sequelize.INTEGER },
+      event_id:             { type: Sequelize.STRING(36) },
+      field_id:             { type: Sequelize.INTEGER },
+      member_id:            { type: Sequelize.INTEGER },
+      value:                { type: Sequelize.TEXT }
+    });
+
+    models.CheckinGroupMembers = db.checkin.define('group_members', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      groupMemberId :       { type: Sequelize.INTEGER },
+      event_id :            { type: Sequelize.STRING(36) },
+      groupUserId :         { type: Sequelize.INTEGER },
+      created :             { type: Sequelize.DATE },
+      confirmnum :          { type: Sequelize.STRING(100) },
+      attend:               { type: Sequelize.BOOLEAN },
+      discount_code_id :    { type: Sequelize.INTEGER },
+      checked_in_time :     { type: Sequelize.DATE }
+    });
+
+    models.CheckinEventFields = db.checkin.define('event_fields', {
+      id:             { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      local_id :       { type: Sequelize.INTEGER },
+      event_id :       { type: Sequelize.STRING(36) },
+      field_id :       { type: Sequelize.INTEGER },
+      local_event_id :       { type: Sequelize.INTEGER },
+      badge_order :       { type: Sequelize.INTEGER },
+      class :       { type: Sequelize.TEXT },
+      name :       { type: Sequelize.STRING(50) },
+      label :       { type: Sequelize.STRING(255) },
+      field_size:       { type: Sequelize.INTEGER },
+      description :       { type: Sequelize.STRING(255) },
+      ordering :       { type: Sequelize.INTEGER },
+      published :       { type: Sequelize.INTEGER },
+      required:       { type: Sequelize.INTEGER },
+      values :       { type: Sequelize.TEXT },
+      type :       { type: Sequelize.INTEGER },
+      selected :       { type: Sequelize.STRING(255) },
+      rows:       { type: Sequelize.INTEGER },
+      cols:       { type: Sequelize.INTEGER },
+      fee_field:       { type: Sequelize.INTEGER },
+      fees :       { type: Sequelize.TEXT },
+      new_line:       { type: Sequelize.INTEGER },
+      textual :       { type: Sequelize.TEXT },
+      export_individual :       { type: Sequelize.BOOLEAN },
+      export_group :       { type: Sequelize.BOOLEAN },
+      attendee_list :       { type: Sequelize.BOOLEAN },
+      usagelimit :       { type: Sequelize.TEXT },
+      fee_type :       { type: Sequelize.BOOLEAN },
+      filetypes :       { type: Sequelize.TEXT },
+      upload :       { type: Sequelize.BOOLEAN },
+      filesize :       { type: Sequelize.INTEGER },
+      hidden :       { type: Sequelize.BOOLEAN },
+      allevent :       { type: Sequelize.BOOLEAN },
+      maxlength :       { type: Sequelize.INTEGER },
+      date_format :       { type: Sequelize.STRING(25) },
+      parent_id :       { type: Sequelize.INTEGER },
+      selection_values :       { type: Sequelize.TEXT },
+      textareafee :       { type: Sequelize.TEXT },
+      showcharcnt :       { type: Sequelize.BOOLEAN },
+      default :       { type: Sequelize.BOOLEAN },
+      confirmation_field :       { type: Sequelize.BOOLEAN },
+      listing :       { type: Sequelize.TEXT },
+      textualdisplay :       { type: Sequelize.BOOLEAN },
+      applychangefee :       { type: Sequelize.BOOLEAN },
+      tag :       { type: Sequelize.STRING(255) },
+      all_tag_enable :       { type: Sequelize.BOOLEAN },
+      minimum_group_size :       { type: Sequelize.INTEGER },
+      max_group_size :       { type: Sequelize.INTEGER },
+      discountcode_depend :       { type: Sequelize.BOOLEAN },
+      discount_codes :       { type: Sequelize.TEXT },
+      showed :       { type: Sequelize.INTEGER },
+      group_behave :       { type: Sequelize.INTEGER }
+    });
+
+    models.CheckinBiller = db.checkin.define('biller', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      userId :              { type: Sequelize.INTEGER },
+      eventId :             { type: Sequelize.STRING(36) },
+      local_eventId :       { type: Sequelize.INTEGER },
+      type :                { type: Sequelize.ENUM('I','G') },
+      register_date :       { type: Sequelize.DATE },
+      payment_type :        { type: Sequelize.STRING(100) },
+      due_amount :          { type: Sequelize.DECIMAL(10,2) },
+      pay_later_option:     { type: Sequelize.INTEGER },
+      confirmNum :          { type: Sequelize.STRING(50) },
+      user_id :             { type: Sequelize.INTEGER },
+      payment_verified :    { type: Sequelize.INTEGER },
+      pay_later_paid:       { type: Sequelize.INTEGER },
+      discount_code_id :    { type: Sequelize.INTEGER },
+      billing_firstname :   { type: Sequelize.STRING(150) },
+      billing_lastname :    { type: Sequelize.STRING(150) },
+      billing_address :     { type: Sequelize.STRING(255) },
+      billing_city :        { type: Sequelize.STRING(150) },
+      billing_state :       { type: Sequelize.STRING(150) },
+      billing_zipcode :     { type: Sequelize.STRING(10) },
+      billing_email :       { type: Sequelize.STRING(150) },
+      due_payment :         { type: Sequelize.DECIMAL(10,2) },
+      status :              { type: Sequelize.INTEGER },
+      attend :              { type: Sequelize.BOOLEAN },
+      paid_amount :         { type: Sequelize.STRING(30) },
+      transaction_id :      { type: Sequelize.STRING(255) },
+      memtot :              { type: Sequelize.INTEGER },
+      cancel :              { type: Sequelize.INTEGER }
+    });
+
+    models.CheckinEventFees = db.checkin.define('event_fees', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      local_id :            { type: Sequelize.INTEGER },
+      event_id :            { type: Sequelize.STRING(36) },
+      user_id :             { type: Sequelize.INTEGER },
+      basefee :             { type: Sequelize.STRING(20) },
+      memberdiscount :      { type: Sequelize.STRING(12) },
+      latefee :             { type: Sequelize.STRING(12) },
+      birddiscount :        { type: Sequelize.STRING(12) },
+      discountcodefee :     { type: Sequelize.STRING(12) },
+      customfee :           { type: Sequelize.STRING(12) },
+      tax :                 { type: Sequelize.STRING(12) },
+      fee :                 { type: Sequelize.STRING(12) },
+      paid_amount :         { type: Sequelize.STRING(12) },
+      status :              { type: Sequelize.STRING(12), defaultValue: '0' },
+      due:                  { type: Sequelize.STRING(20), defaultValue: '0' },
+      payment_method:       { type: Sequelize.STRING(20), defaultValue: '0' },
+      feedate :             { type: Sequelize.DATE },
+      changefee :           { type: Sequelize.STRING(12), defaultValue: '0' },
+      cancelfee :           { type: Sequelize.STRING(12), defaultValue: '0' }
+    });
+
+    models.CheckinBillerFieldValues = db.checkin.define('biller_field_values', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      local_id :            { type: Sequelize.INTEGER },
+      event_id :            { type: Sequelize.STRING(36) },
+      field_id :            { type: Sequelize.INTEGER },
+      user_id :             { type: Sequelize.INTEGER },
+      value :               { type: Sequelize.TEXT }
+    });
+
+    models.ElectionOffices = db.checkin.define('electionOffices', {
+      id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      conferenceid :          { type: Sequelize.INTEGER },
+      position :              { type: Sequelize.INTEGER },
+      title :                 { type: Sequelize.STRING(255) },
+      description :           { type: Sequelize.STRING(255) }
+    });
+
+    models.ElectionOfficeCandidates = db.checkin.define('electionOfficeCandidates', {
+      id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      electionid :            { type: Sequelize.INTEGER },
+      position :              { type: Sequelize.INTEGER },
+      name :                  { type: Sequelize.STRING(255) },
+      company :               { type: Sequelize.STRING(255) }
+    });
+
+    models.ElectionOffices.hasMany(models.ElectionOfficeCandidates, {as: 'Candidates', foreignKey: 'electionid'});
+
+    models.Votes = db.checkin.define('votes', {
+      id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      uuid :                  { type: Sequelize.UUIDV4 },
+      siteid :                { type: Sequelize.STRING(255) },
+      electionid :            { type: Sequelize.INTEGER },
+      registrantid :          { type: Sequelize.STRING(25) },
+      candidateid :           { type: Sequelize.INTEGER },
+      votertype:              { type: Sequelize.ENUM('management','non-management') },
+      datecast :              { type: Sequelize.DATE }
+    });
+
+    models.Printers = db.checkin.define('printers', {
+      id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      conferenceid :          { type: Sequelize.INTEGER(11) },
+      name :                  { type: Sequelize.TEXT },
+      type :                  { type: Sequelize.ENUM('receipt','badge','other'), default: 'receipt'  },
+      host :                  { type: Sequelize.TEXT },
+      uri :                   { type: Sequelize.TEXT }
+    });
+
+    models.CheckinExhibitorAttendeeNumber = db.checkin.define('exhibitorAttendeeNumber', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      userId :              { type: Sequelize.INTEGER },
+      eventId :             { type: Sequelize.STRING(255) },
+      attendees :           { type: Sequelize.INTEGER }
+    });
+
+    models.CheckinExhibitorAttendees = db.checkin.define('exhibitorAttendees', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      userId :              { type: Sequelize.INTEGER },
+      eventId :             { type: Sequelize.STRING(36) },
+      firstname :           { type: Sequelize.STRING(255) },
+      lastname :            { type: Sequelize.STRING(255) },
+      address :             { type: Sequelize.STRING(255) },
+      address2 :            { type: Sequelize.STRING(255) },
+      city :                { type: Sequelize.STRING(255) },
+      state :               { type: Sequelize.STRING(255) },
+      zip :                 { type: Sequelize.STRING(15) },
+      email :               { type: Sequelize.STRING(255) },
+      phone :               { type: Sequelize.STRING(25) },
+      title :               { type: Sequelize.STRING(255) },
+      organization :        { type: Sequelize.STRING(255) },
+      created :             { type: Sequelize.DATE },
+      updated :             { type: Sequelize.DATE },
+      siteId :              { type: Sequelize.STRING(10) }
+    });
+
+    models.Sites = db.checkin.define('siteIds', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      chapter:              { type: Sequelize.INTEGER(6) },
+      memberType:           { type: Sequelize.STRING(255) },
+      company:              { type: Sequelize.STRING(255) },
+      street1:              { type: Sequelize.STRING(255) },
+      street2:              { type: Sequelize.STRING(255) },
+      city:                 { type: Sequelize.STRING(255) },
+      state:                { type: Sequelize.STRING(255) },
+      zipCode:              { type: Sequelize.STRING(255) },
+      joinDate:             { type: Sequelize.DATE },
+      paidDate:             { type: Sequelize.DATE },
+      siteId:               { type: Sequelize.STRING(255) }
+    });
+
+    models.Badges = db.checkin.define('event_badge', {
+      id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      eventId :               { type: Sequelize.STRING(36) },
+      template :              { type: Sequelize.TEXT }
+    });
+
+    getPrinter(function() {
+        console.log("got printers");
+    });
     //Initialize Email Client
     transport = email.createTransport("sendmail", {
-        args: ["-f noreply@vpr.tamu.edu"]
+        args: ["-f noreply@regionvivpp.org"]
     });
-
 };
 
-var getPrinter = function() {
-    var sql = "SELECT * FROM printers ORDER BY type ASC";
-    connection.query(sql, function(err, rows) {
-        if (err) throw err;
-        console.log(rows);
-        rows.forEach(function(row, index) {
-            printerUrl[row.type] = {url:"http://"+row.host+row.uri};
-        });
+var getPrinter = function(callback) {
+    var addPrinter = function(item, cb) {
+          printerUrl[item.type].push({url:"http://"+item.host+item.uri});
+        };
+    models.Printers.findAll(
+      {
+        order: 'type ASC'
+      }
+    )
+    .success(function(printers) {
+      async.each(printers, addPrinter, function(err){
+        callback();
+      });
     });
-}
-
-var getEventGroupMembers = function(fields, search, page, limit, cb, extra) {
-    var sql = "",
-        fields = fields || [],
-        search = search || "all",
-        page = page || 0,
-        limit = limit || 20,
-        vars = [],
-        extra = extra || false;
-
-    if (fields.length == 0) {
-        //console.log(page, start, limit);
-        sql =   "SELECT COUNT(*) as count FROM group_members "+
-                "LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId) "+
-                "WHERE biller.status != -1";
-    } else if (underscore.indexOf(fields, "confirmation") !== -1) {
-        sql = "SELECT group_members.*, biller.confirmNum as billerConfirm"+
-              " FROM group_members"+
-              " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-              " WHERE (group_members.confirmnum LIKE ? OR biller.confirmNum LIKE ?) AND biller.status != -1";
-        vars.push("%"+search+"%", "%"+search+"%");
-        console.log(sql);
-    } else if (underscore.indexOf(fields, "registrantid") !== -1) {
-        sql = "SELECT group_members.*"+
-              " FROM group_members"+
-              " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-              " WHERE group_members.id = ? AND biller.cancel = 0";
-        vars.push(search);
-    } else {
-        sql = "(SELECT group_members.* "+
-                  " FROM event_fields  "+
-                  " LEFT JOIN member_field_values ON (event_fields.local_id = member_field_values.field_id AND event_fields.event_id = member_field_values.event_id) "+
-                  " LEFT JOIN group_members ON (member_field_values.member_id = group_members.groupMemberId  AND member_field_values.event_id = group_members.event_id) "+
-                  " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-                  " WHERE biller.status != -1 AND member_field_values.value LIKE ? AND (";
-        vars.push("%"+search+"%");
-        fields.forEach(function(field, index) {
-            if (index > 0) {
-                sql += " OR ";
-            }
-            sql += "event_fields.class = ?";
-            vars.push(field);
-            for (var i=1;i<=5;i++) {
-                sql += " OR event_fields.class = ?";
-                vars.push("ba"+i+""+field);
-            }
-        });
-        sql += ")) UNION (";
-        sql += "SELECT group_members.* "+
-              " FROM event_fields  "+
-              " LEFT JOIN biller_field_values ON (event_fields.local_id = biller_field_values.field_id AND event_fields.event_id = biller_field_values.event_id) "+
-              " LEFT JOIN group_members ON (biller_field_values.user_id = group_members.groupUserId AND biller_field_values.event_id = group_members.event_id) "+
-              " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-              " WHERE biller.status != -1 AND biller_field_values.value LIKE ? AND (";
-        vars.push("%"+search+"%");
-        fields.forEach(function(field, index) {
-            if (index > 0) {
-                sql += " OR ";
-            }
-            sql += "event_fields.class = ?";
-            vars.push(field);
-            for (var i=1;i<=5;i++) {
-                sql += " OR event_fields.class = ?";
-                vars.push("ba"+i+""+field);
-            }
-        });
-        sql += "))";
-    }
-
-    connection.query(sql, vars, function(err, rows) {
-        if (err) throw err;
-        var start = page * limit,
-            registrants = [
-              {"total_entries": 0},
-              []
-            ],
-            vars = [];
-        if (fields.length == 0) {
-            registrants[0].total_entries = rows[0].count;
-            //console.log(page, start, limit);
-            sql = "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
-                  " FROM group_members"+
-                  " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-                  " LEFT JOIN event ON group_members.event_id = event.eventId"+
-                  " WHERE biller.status != -1"+
-                  " ORDER BY biller.register_date DESC"+
-                  " LIMIT "+start+","+limit;
-        } else if (underscore.indexOf(fields, "confirmation") !== -1) {
-            registrants[0].total_entries = rows.length;
-            sql = "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
-                  " FROM group_members"+
-                  " LEFT JOIN event ON group_members.event_id = event.eventId"+
-                  " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-                  " WHERE (group_members.confirmnum LIKE ? OR biller.confirmNum LIKE ?)AND biller.status != -1"+
-                  " LIMIT "+start+","+limit;
-            vars.push("%"+search+"%", "%"+search+"%");
-            console.log(sql, vars);
-        } else if (underscore.indexOf(fields, "registrantid") !== -1) {
-            registrants[0].total_entries = rows.length;
-            sql = "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
-              " FROM group_members"+
-              " LEFT JOIN event ON group_members.event_id = event.eventId"+
-              " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-              " WHERE group_members.id = ? AND biller.status != -1";
-            vars.push(search);
-        } else {
-            registrants[0].total_entries = rows.length;
-            sql = "(SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
-                  " FROM event_fields  "+
-                  " LEFT JOIN member_field_values ON (event_fields.local_id = member_field_values.field_id AND event_fields.event_id = member_field_values.event_id) "+
-                  " LEFT JOIN group_members ON (member_field_values.member_id = group_members.groupMemberId  AND member_field_values.event_id = group_members.event_id)"+
-                  " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-                  " LEFT JOIN event ON group_members.event_id = event.eventId"+
-                  " WHERE biller.status != -1 AND member_field_values.value LIKE ? AND (";
-            vars.push("%"+search+"%");
-            fields.forEach(function(field, index) {
-                if (index > 0) {
-                    sql += " OR ";
-                }
-                sql += "event_fields.class = ?";
-                vars.push(field);
-                for (var i=1;i<=5;i++) {
-                    sql += " OR event_fields.class = ?";
-                    vars.push("ba"+i+""+field);
-                }
-            });
-            sql += ")) UNION (";
-            sql += "SELECT group_members.*, event.confirm_number_prefix, event.badge_prefix, biller.confirmNum as billerConfirm "+
-                  " FROM event_fields  "+
-                  " LEFT JOIN biller_field_values ON (event_fields.local_id = biller_field_values.field_id AND event_fields.event_id = biller_field_values.event_id) "+
-                  " LEFT JOIN group_members ON (biller_field_values.user_id = group_members.groupUserId AND biller_field_values.event_id = group_members.event_id)"+
-                  " LEFT JOIN biller ON (group_members.groupUserId = biller.userID AND group_members.event_id = biller.eventId)"+
-                  " LEFT JOIN event ON group_members.event_id = event.eventId"+
-                  " WHERE biller.status != -1 AND biller_field_values.value LIKE ? AND (";
-            vars.push("%"+search+"%");
-            fields.forEach(function(field, index) {
-                if (index > 0) {
-                    sql += " OR ";
-                }
-                sql += "event_fields.class = ?";
-                vars.push(field);
-                for (var i=1;i<=5;i++) {
-                    sql += " OR event_fields.class = ?";
-                    vars.push("ba"+i+""+field);
-                }
-            });
-            sql += ")) LIMIT "+start+","+limit;
-        }
-        //console.log(sql);
-        connection.query(sql, vars, function(err, rows) {
-            if (err) throw err;
-            console.log(rows.length);
-            if (rows.length > 0) {
-                console.log("Total Registrants:", registrants[0]);
-                processGroupMembers(extra, rows, registrants, 0, cb);
-            } else {
-                console.log("Total Registrants: 0");
-                registrants[0].total_entries = 0;
-                cb(registrants);
-            }
-        });
-    });
-}
+};
 
 var processGroupMembers = function(extra, members, registrants, index, cb) {
     var sql = "",
-        index = index || 0,
         member = members[index],
         ignoreNames = ["firstname", "lastname"];
+    index = index || 0;
     var vars = [ member.event_id,
                 parseInt(member.groupUserId),
                 member.event_id,
@@ -439,110 +647,32 @@ var processGroupMembers = function(extra, members, registrants, index, cb) {
         }
     });
 
-}
+};
 
-var createBadge = function(registrant, template, cb) {
-    console.log("Creating Badge");
-    var pageBuilder = handlebars.compile(template),
-        dataArray = [],
-        code = registrant.id+"|"+registrant.confirmation,
-        pdfData = "",
-        exhibitorFields = ["firstname", "lastname", "email", "phone", "title"];
+var createBadge = function(registrant, callback) {
+  //console.log("Creating Badge #",index);
+  console.log(__dirname);
+  var pageBuilder = null,
+      code = registrant.id+"|"+registrant.confirmation,
+      pdfData = "",
+      exhibitorFields = ["firstname", "lastname", "email", "phone", "title"];
 
-    if (registrant.event.reg_type == "exhibitor") {
-        var svgPaths = [];
-        for (var i=1;i<=5;i++) {
-            var code = registrant.id+"|"+registrant.confirmation,
-                prefix = (i < 3) ? "ba"+i : "aa"+(i-2),
-                firstname = prefix+"firstname";
-            if (firstname in registrant.fields) {
-                console.log(firstname);
-                exhibitorFields.forEach(function(field, index) {
-                    if (typeof registrant.fields[prefix+field] != "undefined") {
-                        registrant[field] = registrant.fields[prefix+field];
-                    } else {
-                        registrant[field] = "";
-                    }
-                });
-                registrant.badgeFields.forEach(function(field, index) {
-                    code += "|" + registrant[field];
-                });
-                var barcode = pdf417.barcode(code, 5);
-                var y = 0,
-                    bw = 1.25,
-                    bh = 0.75,
-                    svgBarcode = "",
-                    rect = 32000;
-                // for each row
-                for (var r = 0; r < barcode['num_rows']; r++) {
-                    var x = 0;
-                    // for each column
-                    for (var c = 0; c < barcode['num_cols']; c++) {
-                        if (barcode['bcode'][r][c] == 1) {
-                            svgBarcode += '<rect id="rect'+rect+'" height="'+bh+'" width="'+bw+'" y="'+y+'" x="'+x+'" />';
-                            rect++;
-                        }
-                        x += bw;
-                    }
-                    y += bh;
-                }
-                svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(68,300)">'+svgBarcode;
-                svgBarcode += '</g>';
-                registrant["barcode"] = svgBarcode;
-                registrant.fields.id = registrant.registrantId;
-                var svg = pageBuilder(registrant),
-                    svgFileName = path.normalize(__dirname + '/../tmp/badge.'+crypto.randomBytes(4).readUInt32LE(0)+'.svg');
-                svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
-                fs.writeFileSync(svgFileName, svg);
-                svgPaths.push(svgFileName);
-            }
-        }
-
-        var rsvgArgs = ['-z', '0.80', '-f', 'pdf'].concat(svgPaths),
-            rsvg = spawn('rsvg-convert', rsvgArgs);
-
-        rsvg.on('exit', function (code) {
-            if(code == 0) {
-                var d = Buffer.concat(dataArray);
-                svgPaths.forEach(function(path, index) {
-                    fs.unlink(path, function() {
-                        console.log("deleted file:", path);
-                    });
-                });
-                cb(d);
-            } else {
-                console.log(pdfData.toString());
-            }
+  async.waterfall([
+      function(cb){
+        models.Badges.find({
+          where: {
+            eventId: registrant.event_id
+          }
+        })
+        .success(function(badge) {
+          cb(null, badge.template.toString());
         });
-        rsvg.stdout.on('data', function (data) {
-            dataArray.push(data);
-        });
-        rsvg.stderr.on('data', function (data) {
-            pdfData = data;
-            console.log(pdfData.toString());
-        });
-        rsvg.stdin.end();
+      },
+      function(template, cb){
+       // console.log(template);
+        pageBuilder = handlebars.compile(template);
 
-    } else {
-        var rsvg = spawn('rsvg-convert', ['-z', '0.80', '-f', 'pdf']);
-
-        rsvg.on('exit', function (code) {
-            if(code == 0) {
-                var d = Buffer.concat(dataArray);
-                cb(d);
-            } else {
-                console.log(pdfData.toString());
-            }
-        });
-        rsvg.stdout.on('data', function (data) {
-            dataArray.push(data);
-        });
-        rsvg.stderr.on('data', function (data) {
-            pdfData = data;
-            console.log(pdfData.toString());
-        });
-
-        code = registrant.id+"|"+registrant.confirmation;
+        code = registrant.registrantId+"|"+registrant.confirmation;
         registrant.badgeFields.forEach(function(field, index) {
             code += "|" + registrant[field];
         });
@@ -550,32 +680,44 @@ var createBadge = function(registrant, template, cb) {
         var y = 0,
             bw = 1.25,
             bh = 0.75,
-            svgBarcode = "",
+            svgbcode = "",
             rect = 32000;
         // for each row
-        for (var r = 0; r < barcode['num_rows']; r++) {
+        for (var r = 0; r < barcode.num_rows; r++) {
             var x = 0;
             // for each column
-            for (var c = 0; c < barcode['num_cols']; c++) {
-                if (barcode['bcode'][r][c] == 1) {
-                    svgBarcode += '<rect id="rect'+rect+'" height="'+bh+'" width="'+bw+'" y="'+y+'" x="'+x+'" />';
+            for (var c = 0; c < barcode.num_cols; c++) {
+                if (barcode.bcode[r][c] == 1) {
+                    svgbcode += '<rect id="rect'+rect+'" height="'+bh+'" width="'+bw+'" y="'+y+'" x="'+x+'" />';
                     rect++;
                 }
                 x += bw;
             }
             y += bh;
         }
-        svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(68,300)">'+svgBarcode;
-        svgBarcode += '</g>';
-        registrant["barcode"] = svgBarcode;
-        registrant.fields.id = registrant.registrantId;
+        var svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(60,300)">'+svgbcode;
+        svgBarcode += '<text xml:space="preserve" style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" id="text29057" sodipodi:linespacing="125%" x="0" y="'+(y+10)+'">'+registrant.registrantId+'</text></g>';
+        registrant.barcode = svgBarcode;
+
         var svg = pageBuilder(registrant);
         svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
-        //fs.writeFileSync(__dirname + '/badges/badge.'+registrant.id+'.svg', svg);
-        rsvg.stdin.write(svg);
-        rsvg.stdin.end();
-    }
-}
+        var rsvg = new Rsvg();
+        rsvg.on('finish', function() {
+          var pdf = rsvg.render({
+                format: 'pdf',
+                height: 792,
+                width: 612
+              }).data;
+          cb(null, pdf);
+        });
+        rsvg.write(svg);
+        rsvg.end();
+
+      }
+  ], function (err, pdf) {
+    callback(pdf);
+  });
+};
 
 var saveTransaction = function(res, callback) {
     var sql = "INSERT INTO transactions SET ?",
@@ -583,8 +725,8 @@ var saveTransaction = function(res, callback) {
     delete vars.batch;
     delete vars.payment;
     delete vars.order;
-    delete vars.billTo
-    delete vars.shipTo
+    delete vars.billTo;
+    delete vars.shipTo;
     delete vars.recurringBilling;
     delete vars.customer;
     delete vars.customerIP;
@@ -614,8 +756,8 @@ var saveTransaction = function(res, callback) {
     connection.query(sql, vars, function(err, result) {
         if (err) throw err;
         callback({dbResult:result, creditResult:res});
-    })
-}
+    });
+};
 
 /************
 * Routes
@@ -634,7 +776,7 @@ exports.index = function(req, res){
     //if (typeof req.session.user !== 'undefined') {
         init = "$(document).ready(function() { App.uid = '" + sid + "'; App.initialize(); });";
     //}
-    fs.readFile(__dirname + '/../public/templates/index.html', 'utf8', function(error, content) {
+    fs.readFile(__dirname + '/../assets/templates/index.html', 'utf8', function(error, content) {
         if (error) { console.log(error); }
         content = content.replace("{{init}}", init);
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -645,7 +787,6 @@ exports.index = function(req, res){
 
 //Return documents
 exports.registrants = function(req, res) {
-
     var category = req.params.category,
         cat = [],
         search = req.params.search,
@@ -679,7 +820,15 @@ exports.registrants = function(req, res) {
         }
         cat = ["registrantid"];
     }
-    getEventGroupMembers(cat, search, page, limit, callback);
+
+    registrants.searchAttendees(
+     cat,
+     search,
+     page,
+     limit,
+     null,
+     callback
+    );
 
 
 };
@@ -700,7 +849,7 @@ exports.genBadge = function(req, res) {
         },
         printCallback = function(pdf) {
             console.log(printerUrl);
-            var printer = ipp.Printer(printerUrl.badge.url);
+            var printer = ipp.Printer(printerUrl.badge[0].url);
             var msg = {
                 "operation-attributes-tag": {
                     "requesting-user-name": "Station",
@@ -719,17 +868,11 @@ exports.genBadge = function(req, res) {
             });
         },
         registrantCallback = function(registrants) {
-            var sql = "SELECT * FROM event_badge WHERE eventId = ?",
-                vars = [registrants[1][0].event_id]
-
-            connection.query(sql, vars, function(err, rows) {
-                if (err) throw err;
-                if (action == "print") {
-                    createBadge(registrants[1][0], rows[0].template, printCallback);
-                } else if (action == "download") {
-                    createBadge(registrants[1][0], rows[0].template, downloadCallback);
-                }
-            });
+          if (action == "print") {
+            createBadge(registrants[1][0], printCallback);
+          } else if (action == "download") {
+            createBadge(registrants[1][0], downloadCallback);
+          }
         };
 
     /**
@@ -741,7 +884,7 @@ exports.genBadge = function(req, res) {
     **/
     console.log("[genBadge] session id:", req.session.id);
     console.log("Badge action:", action);
-    getEventGroupMembers(["registrantid"], id, 0, 20, registrantCallback, false);
+    registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
 
 
 };
@@ -761,12 +904,13 @@ exports.genReceipt = function(req, res) {
             resource.end('\n');
         },
         printCallback = function(pdf) {
-            console.log(printerUrl);
-            var printer = ipp.Printer(printerUrl.receipt.url);
+            console.log(printerUrl.receipt[0]);
+            console.log(pdf);
+            var printer = ipp.Printer(printerUrl.receipt[0].url);
             var msg = {
                 "operation-attributes-tag": {
                     "requesting-user-name": "Station",
-                    "job-name": "Badge Print Job",
+                    "job-name": "Receipt Print Job",
                     "document-format": "application/pdf"
                 },
                 data: pdf
@@ -780,50 +924,49 @@ exports.genReceipt = function(req, res) {
             });
         },
         registrantCallback = function(registrants) {
-            var sql = "SELECT * FROM event_badge WHERE eventId = ?",
-                vars = [registrants[1][0].event_id]
-
-            connection.query(sql, vars, function(err, rows) {
-                if (err) throw err;
-                /*
-                if (action == "print") {
-                    createBadge(registrants[1][0], rows[0].template, printCallback);
-                } else if (action == "download") {
-                    createBadge(registrants[1][0], rows[0].template, downloadCallback);
+          var pageBuilder = handlebars.compile(receipt),
+              html = pageBuilder(registrants[1][0]);
+          if (action == "view") {
+              downloadCallback(html);
+          } else {
+            var random = crypto.randomBytes(4).readUInt32LE(0);
+            receiptFileNamePdf = path.normalize(__dirname + '/../tmp/receipt.'+random+'.pdf');
+            var pdf = new NodePDF(
+              null,
+              receiptFileNamePdf,
+              {
+                'content': html,
+                'viewportSize': {
+                  width:670,
+                  height:1160
+                },
+                'paperSize': {
+                  'format': 'Letter',
+                  'orientation': 'portrait'
                 }
-                */
-                var pageBuilder = handlebars.compile(receipt),
-                    html = pageBuilder(registrants[1][0]);
-                if (action == "view") {
-                    downloadCallback(html);
-                } else {
-                    var random = crypto.randomBytes(4).readUInt32LE(0);
-                    receiptFileNameHtml = path.normalize(__dirname + '/../tmp/receipt.'+random+'.html');
-                    receiptFileNamePdf = path.normalize('receipt.'+random+'.pdf');
-                    fs.writeFile(receiptFileNameHtml, html, function(err) {
-                        if (err) console.log(err);
-                        var pdf = new NodePDF(receiptFileNameHtml, receiptFileNamePdf, {width:670, height:1160});
+              }
+            );
 
-                        pdf.on('error', function(msg){
-                            console.log(msg);
-                        });
-
-                        pdf.on('done', function(pathToFile){
-                            console.log(pathToFile);
-                            fs.readFile(pathToFile, function (err, data) {
-                                if (err) console.log(err);
-                                fs.unlink(pathToFile, function(err) {
-                                    if (err) console.log(err);
-                                });
-                                fs.unlink(receiptFileNameHtml, function(err) {
-                                    if (err) console.log(err);
-                                });
-                                printCallback(data);
-                            });
-                        });
-                    });
-                }
+            pdf.on('error', function(msg){
+                console.log(msg);
             });
+
+            pdf.on('done', function(pathToFile){
+                console.log(pathToFile);
+                fs.readFile(receiptFileNamePdf, function (err, data) {
+                    if (err) console.log(err);
+                    /**
+                    fs.unlink(pathToFile, function(err) {
+                        if (err) console.log(err);
+                    });
+                    fs.unlink(receiptFileNameHtml, function(err) {
+                        if (err) console.log(err);
+                    });
+                    **/
+                    printCallback(data);
+                });
+            });
+          }
         };
 
     /**
@@ -835,87 +978,41 @@ exports.genReceipt = function(req, res) {
     **/
     console.log("[genBadge] session id:", req.session.id);
     console.log("Badge action:", action);
-    getEventGroupMembers(["registrantid"], id, 0, 20, registrantCallback, true);
+    registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
 
 
 };
 
 exports.getRegistrant = function(req, res) {
     var id = req.params.id,
-        callback = function(registrants) {
+        callback = function(registrant) {
             //if (err) console.log(err);
             res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
             res.writeHead(200, { 'Content-type': 'application/json' });
-            res.write(JSON.stringify(registrants[1][0]), 'utf-8');
+            res.write(JSON.stringify(registrants), 'utf-8');
             res.end('\n');
         };
 
     console.log("[getRegistrant] session id:", req.session.id);
-    getEventGroupMembers(["registrantid"], id, 0, 20, callback);
+    registrants.getAttendee(id, callback);
 };
 
 exports.updateRegistrantValues = function(req, res) {
-
     var sid = req.session.id,
         id = req.params.id,
-        values = req.body,
-        sql = "DELETE FROM member_field_values WHERE event_id = ? AND member_id = ?; ",
-        vars = [values.event_id, values.local_id],
-        updateSelf = ['confirmnum'];
+        values = req.body;
 
-    connection.query(sql, vars, function(err, rows) {
-        sql = "SELECT * FROM event_fields WHERE event_id = ?;",
-        vars = [values.event_id];
-
-        console.log("[updateRegistrantValues] session id:", req.session.id);
-        console.log("id", id);
-        //console.log(values);
-        connection.query(sql, vars, function(err, rows) {
-            var vars = [],
-                sql = "";
-            if (err) throw err;
-            rows.forEach(function(field, index) {
-
-                if (typeof values.fields[field.name] != "undefined") {
-                    sql += "INSERT INTO member_field_values SET value = ?, event_id = ?, field_id = ?, member_id = ?; ";
-                    if (field.values && (field.type == 4 || field.type == 1)) {
-                        var fValues = field.values.split("|");
-                        values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
-                    }
-                    vars.push(values.fields[field.name], values.event_id, field.local_id, values.local_id);
-                    //console.log(values.fields[field.name], values.event_id, field.local_id, values.local_id);
-                    /*
-                    sql += "INSERT INTO biller_field_values SET value = ?, event_id = ?, field_id = ?, user_id = ?; ";
-                    if (field.values) {
-                        var fValues = field.values.split("|");
-                        values.fields[field.name] = fValues.indexOf(values.fields[field.name]);
-                    }
-
-                    vars.push(values.fields[field.name], values.event_id, field.local_id, values.biller_id);
-                    */
-                }
-            });
-
-            updateSelf.forEach(function(field, index) {
-                if (typeof values.fields[field] != "undefined") {
-                    sql += "UPDATE group_members SET "+field+" = ? WHERE event_id = ? AND groupMemberId = ?;";
-                    vars.push(values.fields[field], values.event_id, values.local_id);
-                }
-
-            });
-
-            //console.log(sql, vars);
-            connection.query(sql, vars, function(err, results) {
-                if (err) throw err;
-                //console.log(results);
-                res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-                res.writeHead(200, { 'Content-type': 'application/json' });
-                res.write(JSON.stringify(values), 'utf-8');
-                res.end('\n');
-                logAction(sid, "registrant", id, "updated", "Registrant updated");
-            });
-        });
-    });
+    registrants.updateAttendeeValues(
+      id,
+      values,
+      function(registrant) {
+        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+        res.writeHead(200, { 'Content-type': 'application/json' });
+        res.write(JSON.stringify(values), 'utf-8');
+        res.end('\n');
+        logAction(sid, "registrant", id, "updated", "Registrant updated");
+      }
+    );
 };
 
 exports.updateRegistrant = function(req, res) {
@@ -927,24 +1024,24 @@ exports.updateRegistrant = function(req, res) {
 
     console.log("[updateRegistrant] session id:", req.session.id);
     //console.log(values);
-    connection.query(sql, values, function(err, results) {
-        if (err) throw err;
-        //console.log(results);
+    registrants.updateAttendee(id, values, function(registrant) {
+        //if (err) throw err;
+        if ("attend" in values) {
+          if (values.attend) {
+              logAction(sid, "registrant", id, "attend", "Registrant checked in");
+              updateCheckedIn();
+          } else {
+              logAction(sid, "registrant", id, "attend", "Registrant checked out");
+              updateCheckedIn();
+          }
+        }
         res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
         res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify(values), 'utf-8');
+        res.write(JSON.stringify(registrant), 'utf-8');
         res.end('\n');
     });
 
-    if ("attend" in values) {
-        if (values.attend) {
-            logAction(sid, "registrant", id, "attend", "Registrant checked in");
-            updateCheckedIn();
-        } else {
-            logAction(sid, "registrant", id, "attend", "Registrant checked out");
-            updateCheckedIn();
-        }
-    }
+
 
 };
 
@@ -1000,13 +1097,13 @@ exports.addRegistrant = function(req, res) {
             },
             function(vars, memberId, callback){
                 var oldVars = vars,
-                    vars = {
-                        "groupMemberId": memberId,
-                        "event_id": oldVars.eventId,
-                        "groupUserId": oldVars.userId,
-                        "confirmnum": oldVars.confirmNum,
-                    },
                     sql = "INSERT INTO group_members SET ?";
+                vars = {
+                    "groupMemberId": memberId,
+                    "event_id": oldVars.eventId,
+                    "groupUserId": oldVars.userId,
+                    "confirmnum": oldVars.confirmNum,
+                };
                 connection.query(sql, vars, function(err, insertResults) {
                     if (err) throw err;
                     callback(null, vars, insertResults.insertId);
@@ -1016,19 +1113,19 @@ exports.addRegistrant = function(req, res) {
             function(vars, memberId, callback){
                 var oldVars = vars,
                     sql = "",
-                    vars = [];
-
+                    fvars;
+                vars = [];
                 results[3].forEach(function(field, index) {
                     if (typeof values[field.name] != "undefined") {
                         sql += "INSERT INTO member_field_values SET value = ?, event_id = ?, field_id = ?, member_id = ?; ";
                         if (field.values) {
-                            var fValues = field.values.split("|");
+                            fValues = field.values.split("|");
                             values[field.name] = fValues.indexOf(values[field.name]);
                         }
                         vars.push(values[field.name], values.eventId, field.local_id, oldVars.groupMemberId);
                         sql += "INSERT INTO biller_field_values SET value = ?, event_id = ?, field_id = ?, user_id = ?; ";
                         if (field.values) {
-                            var fValues = field.values.split("|");
+                            fValues = field.values.split("|");
                             values[field.name] = fValues.indexOf(values[field.name]);
                         }
                         vars.push(values[field.name], values.eventId, field.local_id, oldVars.groupUserId);
@@ -1042,78 +1139,84 @@ exports.addRegistrant = function(req, res) {
             }
         ], function (err, result) {
             //console.log(result);
-
-            getEventGroupMembers(["registrantid"], result, 0, 20, retCallback);
+            registrants.searchAttendees(["registrantid"], result, 0, 20, false, retCallback);
         });
     });
 };
 
 exports.getEvents = function(req, res) {
+  var sid = req.session.id,
+      id = req.params.id;
 
-    var sid = req.session.id,
-        id = req.params.id,
-        sql = "SELECT * FROM event ORDER BY slabId ASC;";
-
-    console.log("[getEvents] session id:", req.session.id);
-    connection.query(sql, function(err, rows) {
-        if (err) throw err;
-        var getFields = function(event, callback) {
-            var sql = "SELECT * FROM event_fields WHERE event_id = ? AND showed = 3 ORDER BY ordering ASC;",
-                vars = [event.eventId];
-
-            connection.query(sql, vars, function(err, rows) {
-                var types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'],
-                    fields = {},
-                    fieldset = [];
-
-                rows.forEach(function(row, index) {
-                    var schemaRow = {
-                        "title": row.label,
-                        "type": types[row.type]
-                    };
-                    if (row.values) {
-                        var values = row.values.split("|");
-                        schemaRow.options = values;
-                    }
-                    fields[row.name] = schemaRow;
-                    fieldset.push(row.name);
-                });
-                //console.log(fields);
-                event.fields = fields;
-                event.fieldset = fieldset;
-                callback(null, event);
+  console.log("[getEvents] session id:", req.session.id);
+  models.Events.findAll(
+    {
+      order: 'slabId ASC'
+    }
+  )
+  .success(function(events) {
+    var types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'],
+        fields = {},
+        fieldset = [],
+        getFields = function(event, callback) {
+          models.CheckinEventFields.findAll(
+            {
+              where: {
+                event_id: event.eventId,
+                showed: 3
+              },
+              order: 'ordering ASC'
+            }
+          ).success(function(evFields) {
+            fields = {};
+            fieldset = [];
+            async.each(evFields, makeFieldset, function(err) {
+              //console.log(fields);
+              event.fields = fields;
+              event.fieldset = fieldset;
+              callback(null, event);
             });
+          });
+        },
+        makeFieldset = function(field, cb) {
+          var schemaRow = {
+              "title": field.label,
+              "type": types[field.type]
+          };
+          if (field.values) {
+              var values = field.values.split("|");
+              schemaRow.options = values;
+          }
+          fields[field.name] = schemaRow;
+          fieldset.push(field.name);
+          cb(null);
         };
 
-        async.map(rows, getFields, function(err, results){
-            //console.log(results);
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, { 'Content-type': 'application/json' });
-            res.write(JSON.stringify(results), 'utf-8');
-            res.end('\n');
-        });
-
+    async.map(events, getFields, function(err, results){
+      //console.log(results);
+      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+      res.writeHead(200, { 'Content-type': 'application/json' });
+      res.write(JSON.stringify(results), 'utf-8');
+      res.end('\n');
     });
-
-}
+  });
+};
 
 exports.getEventFields = function(req, res) {
+  var sid = req.session.id,
+      id = req.params.id;
 
-    var sid = req.session.id,
-        id = req.params.id,
-        sql = "SELECT * FROM event_fields WHERE event_id = ?;",
-        vars = [id];
-
-    console.log("[getEventField] session id:", req.session.id);
-    connection.query(sql, vars, function(err, rows) {
-        if (err) throw err;
-        //console.log(rows);
-        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-        res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify(rows), 'utf-8');
-        res.end('\n');
-    });
-
+  console.log("[getEventField] session id:", req.session.id);
+  models.CheckinEventFields.findAll({
+    where: {
+      event_id: id
+    }
+  }).success(function(fields) {
+    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+    res.writeHead(200, { 'Content-type': 'application/json' });
+    res.write(JSON.stringify(fields), 'utf-8');
+    res.end('\n');
+  });
 };
 
 exports.makePayment = function(req, res) {
@@ -1146,7 +1249,7 @@ exports.makePayment = function(req, res) {
                 if (rows.length > 0) {
                     sql = "UPDATE";
                 } else {
-                    sql = "INSERT INTO"
+                    sql = "INSERT INTO";
                 }
                 sql += " event_fees SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ? WHERE event_id = ? AND user_id = ?";
 
@@ -1180,13 +1283,13 @@ exports.makePayment = function(req, res) {
                             if (rows.length > 0) {
                                 sql = "UPDATE";
                             } else {
-                                sql = "INSERT INTO"
+                                sql = "INSERT INTO";
                             }
                             sql += " event_fees SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ?";
                             if (rows.length > 0) {
                                 sql += " WHERE event_id = ? AND user_id = ?";
                             } else {
-                                sql += ", event_id = ?, user_id = ?"
+                                sql += ", event_id = ?, user_id = ?";
                             }
                             //console.log(sql, vars);
                             connection.query(sql, vars, function(err, result) {
@@ -1206,35 +1309,30 @@ exports.makePayment = function(req, res) {
         });
     }
 
-}
+};
 
 exports.getNumberCheckedIn = function(req, res) {
-    var sql = "SELECT COUNT(id) as count FROM group_members WHERE attend = 1";
-    connection.query(sql, function(err, rows) {
-        if (err) console.log(err);
-        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-        res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify({"checkedIn": rows[0].count}), 'utf-8');
-        res.end('\n');
-    });
-}
+  registrants.getCheckedInCount(function(count) {
+    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+    res.writeHead(200, { 'Content-type': 'application/json' });
+    res.write(JSON.stringify({"checkedIn": count}), 'utf-8');
+    res.end('\n');
+  });
+};
 
 var updateCheckedIn = function() {
-    var sql = "SELECT COUNT(id) as count FROM group_members WHERE attend = 1";
-    connection.query(sql, function(err, rows) {
-        if (err) console.log(err);
-        console.log(rows);
-        logAction(0, "updates", rows[0].count, "checkedIn", "Number checked in");
-    });
-}
+  registrants.getCheckedInCount(function(count) {
+    logAction(0, "updates", count, "checkedIn", "Number checked in");
+  });
+};
 
 //Helpers
 var getConnection = function() {
     // Test connection health before returning it to caller.
-    if ((connection) && (connection._socket)
-            && (connection._socket.readable)
-            && (connection._socket.writable)) {
-        return connection;
+    if ((connection) && (connection._socket) &&
+        (connection._socket.readable) &&
+        (connection._socket.writable)) {
+      return connection;
     }
     console.log(((connection) ?
             "UNHEALTHY SQL CONNECTION; RE" : "") + "CONNECTING TO SQL.");
@@ -1281,7 +1379,7 @@ var getConnection = function() {
     });
     connection = connection;
     return connection;
-}
+};
 
 
 var handleDisconnect = function (connection) {
@@ -1318,3 +1416,5 @@ function pad(num, size) {
     while (s.length < size) s = "0" + s;
     return s;
 }
+
+}());
