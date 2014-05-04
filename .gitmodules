@@ -1,6 +1,3 @@
-[submodule "vendors/machina"]
-	path = vendors/machina
-	url = git://github.com/ifandelse/machina.js.git
 [submodule "vendors/bootstrap-select"]
 	path = vendors/bootstrap-select
 	url = git://github.com/silviomoreto/bootstrap-select.git
