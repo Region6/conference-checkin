@@ -1,6 +1,3 @@
-[submodule "vendors/backbone-forms"]
-	path = vendors/backbone-forms
-	url = git://github.com/powmedia/backbone-forms.git
 [submodule "vendors/bootstrap"]
 	path = vendors/bootstrap
 	url = git://github.com/twitter/bootstrap.git
