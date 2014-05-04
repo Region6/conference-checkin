@@ -28,6 +28,6 @@
     "backgrid": "*",
     "backgrid-paginator": "*",
     "jQuery-CreditCardValidator": "https://github.com/PawelDecowski/jQuery-CreditCardValidator.git",
-    "credit_card_track_parser": "https://github.com/jpartlow/credit_card_track_parser.git"
+    "credit_card_track_parser": "https://github.com/mattvoss/credit_card_track_parser.git"
   }
 }

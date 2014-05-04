@@ -1,8 +1,7 @@
 node_modules/
 settings.json
 access.log
-public/js/bundle.js
-public/js/templates.js
+public/
 public/js/vendor.js
 /app.log
 /reg.dor.key

@@ -41,6 +41,7 @@ var fs = require('fs'),
     reconnectTries = 0,
     models = {} ;
 
+Swag.registerHelpers(handlebars);
 /**
  * usages (handlebars)
  * {{short_string this}}
@@ -985,17 +986,17 @@ exports.genReceipt = function(req, res) {
 };
 
 exports.getRegistrant = function(req, res) {
-    var id = req.params.id,
-        callback = function(registrant) {
-            //if (err) console.log(err);
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, { 'Content-type': 'application/json' });
-            res.write(JSON.stringify(registrants), 'utf-8');
-            res.end('\n');
-        };
+  var id = req.params.id,
+      callback = function(registrant) {
+        //if (err) console.log(err);
+        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+        res.writeHead(200, { 'Content-type': 'application/json' });
+        res.write(JSON.stringify(registrant), 'utf-8');
+        res.end('\n');
+      };
 
     console.log("[getRegistrant] session id:", req.session.id);
-    registrants.getAttendee(id, callback);
+    registrants.searchAttendees(["registrantid"], id, 0, 20, false, callback);
 };
 
 exports.updateRegistrantValues = function(req, res) {
@@ -1137,93 +1138,52 @@ exports.getEventFields = function(req, res) {
 };
 
 exports.makePayment = function(req, res) {
-
     var values = req.body,
-        sql = "",
         transAction = values.transaction,
         payments = authnet.aim({
-            id: opts.configs.authorizenet.id,
-            key: opts.configs.authorizenet.key,
-            env: opts.configs.authorizenet.env
+            id: opts.configs.get("authorizenet:id"),
+            key: opts.configs.get("authorizenet:key"),
+            env: opts.configs.get("authorizenet:env")
         }),
-        transactions = authnet.td(opts.configs.authorizenet),
+        transactions = authnet.td(opts.configs.get("authorizenet")),
         successCallback = function(result) {
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, { 'Content-type': 'application/json' });
-            res.write(JSON.stringify(result), 'utf-8');
-            res.end('\n');
+          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+          res.writeHead(200, { 'Content-type': 'application/json' });
+          res.write(JSON.stringify(result), 'utf-8');
+          res.end('\n');
         };
     if (values.type == "check") {
-        sql = "UPDATE biller SET transaction_id = ? WHERE eventId = ? AND userId = ?";
-        var vars = [values.transaction.payment.checkNumber, values.registrant.event_id, values.registrant.biller_id];
-        connection.query(sql, vars, function(err, results) {
-            if (err) console.log(err);
-            sql = "SELECT * FROM event_fees WHERE event_id = ? AND user_id = ?";
-            var vars = [values.registrant.event_id, values.registrant.biller_id];
-            connection.query(sql, vars, function(err, rows) {
-                if (err) console.log(err);
-                var vars = [transAction.amount, transAction.amount, transAction.amount, 1, "2", values.registrant.event_id, values.registrant.biller_id];
-                if (rows.length > 0) {
-                    sql = "UPDATE";
-                } else {
-                    sql = "INSERT INTO";
-                }
-                sql += " event_fees SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ? WHERE event_id = ? AND user_id = ?";
-
-                connection.query(sql, vars, function(err, result) {
-                    if (err) console.log(err);
-                    successCallback({dbResult:result});
+      registrants.saveCheckTransaction(values, function(results) {
+        successCallback({ dbResult: results });
+      });
+    } else if (values.type != "check") {
+      payments.createTransaction(transAction, function (err, results){
+        console.log(results);
+        if (results.code == "I00001") {
+            var trans = {
+                    transId: results.transactionResponse.transId
+                };
+            transactions.getTransactionDetails(trans, function (err, result){
+                var transactionDetails = result;
+                registrants.saveCreditTransaction(values, function(results) {
+                  registrants.saveAuthorizeNetTransaction(
+                    transactionDetails,
+                    function(results) {
+                      successCallback({
+                        dbResult: results.db,
+                        creditResult: results.credit
+                      });
+                    }
+                  );
                 });
             });
-        });
-      } else if (values.type != "check") {
-
-        payments.createTransaction(transAction, function (err, results){
-            console.log(results);
-            if (results.code == "I00001") {
-                var trans = {
-                        transId: results.transactionResponse.transId
-                    };
-                transactions.getTransactionDetails(trans, function (err, result){
-                    var transactionDetails = result;
-                    sql = "UPDATE biller SET transaction_id = ? WHERE eventId = ? AND userId = ?";
-                    var vars = [result.transaction.transId, values.registrant.event_id, values.registrant.biller_id];
-                    connection.query(sql, vars, function(err, results) {
-                        if (err) console.log(err);
-                        console.log(results);
-                        sql = "SELECT * FROM event_fees WHERE event_id = ? AND user_id = ?";
-                        var vars = [values.registrant.event_id, values.registrant.biller_id];
-                        connection.query(sql, vars, function(err, rows) {
-                            if (err) console.log("SELECT Event Fees:", err);
-                            console.log(rows);
-                            var vars = [transAction.amount, transAction.amount, transAction.amount, 1, "authorizenet", values.registrant.event_id, values.registrant.biller_id];
-                            if (rows.length > 0) {
-                                sql = "UPDATE";
-                            } else {
-                                sql = "INSERT INTO";
-                            }
-                            sql += " event_fees SET basefee = ?, fee = ?, paid_amount = ?, status = ?, payment_method = ?";
-                            if (rows.length > 0) {
-                                sql += " WHERE event_id = ? AND user_id = ?";
-                            } else {
-                                sql += ", event_id = ?, user_id = ?";
-                            }
-                            //console.log(sql, vars);
-                            connection.query(sql, vars, function(err, result) {
-                                if (err) console.log("Insert Event Fees:", err);
-                                console.log(result);
-                                saveTransaction(transactionDetails, successCallback);
-                            });
-                        });
-                    });
-                });
-            } else {
-                res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-                res.writeHead(200, { 'Content-type': 'application/json' });
-                res.write(JSON.stringify(results), 'utf-8');
-                res.end('\n');
-            }
-        });
+        } else {
+          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+          res.writeHead(200, { 'Content-type': 'application/json' });
+          res.write(JSON.stringify(results), 'utf-8');
+          res.end('\n');
+        }
+      });
     }
 
 };
