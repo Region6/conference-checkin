@@ -1,6 +1,3 @@
-[submodule "vendors/bootstrap-notify"]
-	path = vendors/bootstrap-notify
-	url = git://github.com/Nijikokun/bootstrap-notify.git
 [submodule "vendors/bootstrap-switch"]
 	path = vendors/bootstrap-switch
 	url = git://github.com/nostalgiaz/bootstrap-switch.git
