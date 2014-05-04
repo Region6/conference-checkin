@@ -1,6 +1,3 @@
-[submodule "vendors/backbone-pageable"]
-	path = vendors/backbone-pageable
-	url = git://github.com/wyuenho/backbone-pageable.git
 [submodule "vendors/backgrid"]
 	path = vendors/backgrid
 	url = git://github.com/wyuenho/backgrid.git
