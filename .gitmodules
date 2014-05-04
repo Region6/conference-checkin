@@ -1,6 +1,3 @@
-[submodule "vendors/bootstrap-switch"]
-	path = vendors/bootstrap-switch
-	url = git://github.com/nostalgiaz/bootstrap-switch.git
 [submodule "vendors/toolbar"]
 	path = vendors/toolbar
 	url = git://github.com/paulkinzett/toolbar.git
