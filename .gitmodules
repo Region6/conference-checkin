@@ -1,6 +1,3 @@
-[submodule "vendors/swag"]
-	path = vendors/swag
-	url = git://github.com/elving/swag.git
 [submodule "vendors/jQuery-CreditCardValidator"]
 	path = vendors/jQuery-CreditCardValidator
 	url = git://github.com/PawelDecowski/jQuery-CreditCardValidator.git
