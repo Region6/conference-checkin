@@ -1,6 +1,3 @@
-[submodule "vendors/credit_card_track_parser"]
-	path = vendors/credit_card_track_parser
-	url = git://github.com/jpartlow/credit_card_track_parser.git
 [submodule "vendors/backbone.bootstrap-modal"]
 	path = vendors/backbone.bootstrap-modal
 	url = git://github.com/mattvoss/backbone.bootstrap-modal.git
