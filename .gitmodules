@@ -1,6 +1,3 @@
-[submodule "vendors/underscore"]
-	path = vendors/underscore
-	url = https://github.com/documentcloud/underscore
 [submodule "vendors/swag"]
 	path = vendors/swag
 	url = git://github.com/elving/swag.git
