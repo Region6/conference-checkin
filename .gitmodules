@@ -1,6 +1,3 @@
-[submodule "vendors/backgrid"]
-	path = vendors/backgrid
-	url = git://github.com/wyuenho/backgrid.git
 [submodule "vendors/backbone"]
 	path = vendors/backbone
 	url = git://github.com/documentcloud/backbone.git
