@@ -1,6 +1,3 @@
-[submodule "vendors/select2"]
-	path = vendors/select2
-	url = git://github.com/ivaynberg/select2.git
 [submodule "vendors/bootstrap-datepicker"]
 	path = vendors/bootstrap-datepicker
 	url = git://github.com/eternicode/bootstrap-datepicker.git
