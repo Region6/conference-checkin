@@ -1,0 +1,18 @@
+<td>
+    {{#is payment_method "2"}}
+        Check
+    {{else}}
+        {{#is payment_method "authorizenet"}}
+            Credit
+        {{else}}
+            ?
+        {{/is}}
+    {{/is}}
+</td>
+<td>
+    {{#if paid_amount}}
+        ${{toFixed paid_amount 2}}
+    {{else}}
+        ?
+    {{/if}}
+</td>

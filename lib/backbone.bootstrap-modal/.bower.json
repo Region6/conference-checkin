@@ -1,0 +1,12 @@
+{
+  "name": "backbone.bootstrap-modal",
+  "homepage": "https://github.com/amsross/backbone.bootstrap-modal",
+  "_release": "b10227832b",
+  "_resolution": {
+    "type": "commit",
+    "commit": "b10227832bca7c9875e1e7666c6835f258c31288"
+  },
+  "_source": "https://github.com/amsross/backbone.bootstrap-modal.git",
+  "_target": "b10227832bca7c9875e1e7666c6835f258c31288",
+  "_originalSource": "https://github.com/amsross/backbone.bootstrap-modal.git"
+}

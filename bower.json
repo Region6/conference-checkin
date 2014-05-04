@@ -1,0 +1,33 @@
+{
+  "name": "checkin-bower",
+  "version": "0.1.0",
+  "dependencies": {
+    "handlebars": "*",
+    "bootstrap": "*",
+    "underscore": "*",
+    "marionette": "*",
+    "backbone.wreqr": "*",
+    "backbone.babysitter": "https://github.com/marionettejs/backbone.babysitter.git",
+    "backbone.marionette.handlebars": "https://github.com/asciidisco/Backbone.Marionette.Handlebars.git",
+    "json2": "*",
+    "font-awesome": "*",
+    "swag": "*",
+    "backbone-forms": "*",
+    "selectize": "*",
+    "ladda-bootstrap": "*",
+    "moment": "*",
+    "bootflat": "https://github.com/flathemes/bootflat.git",
+    "bootstrap-select": "*",
+    "jQuery-Mask-Plugin": "*",
+    "bootstrap-jasny": "*",
+    "backbone.supermodel": "https://github.com/laoshanlung/backbone.supermodel.git",
+    "placeholders": "https://github.com/Spinarooni/Placeholders.js/archive/master.zip",
+    "ie-alert": "*",
+    "messenger": "*",
+    "backbone.bootstrap-modal": "https://github.com/amsross/backbone.bootstrap-modal.git#b10227832bca7c9875e1e7666c6835f258c31288",
+    "backgrid": "*",
+    "backgrid-paginator": "*",
+    "jQuery-CreditCardValidator": "https://github.com/PawelDecowski/jQuery-CreditCardValidator.git",
+    "credit_card_track_parser": "https://github.com/jpartlow/credit_card_track_parser.git"
+  }
+}

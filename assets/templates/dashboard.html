@@ -1,0 +1,40 @@
+<!--
+<div class="span5" id="timelineHolder">
+
+</div>
+-->
+<div class="col-md-12">
+    <div class="row" style="margin-bottom: 5px;">
+        <div class="col-md-12">
+            <div class="input-group input-group-lg">
+                <select data-width="auto" class="selectpicker" id="category">
+                    <option value="confirmation">Confirmation #</option>
+                    <option value="registrantid">Registrant ID</option>
+                    <option value="name">Name</option>
+                    <option value="company">Company</option>
+                </select>
+                <input class="form-control input-lg" id="searchText" type="search" />
+                <span class="input-group-btn">
+                    <button class="btn btn-warning btn-lg clear" type="button"><i class="fa fa-ban"></i></button>
+                    <button type="submit" class="btn btn-primary btn-lg search">Search</button>
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="row" style="margin-bottom: 5px;">
+        <div class="col-md-12">
+            <div class="btn-group">
+              <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+                Action <span class="caret"></span>
+              </button>
+              <ul class="dropdown-menu" role="menu">
+                <li><a href="#" class="addNewRegistrant">Add Registrant</a></li>
+                <li class="divider"></li>
+              </ul>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div id="regTable"></div>
+    </div>
+</div>

@@ -88,7 +88,8 @@ exports.initialize = function() {
       "username": opts.configs.get("mysql:username"),
       "password": opts.configs.get("mysql:password"),
       "database": opts.configs.get("mysql:database"),
-      "port": opts.configs.get("mysql:port") || 3306
+      "port": opts.configs.get("mysql:port") || 3306,
+      "logging": true
     });
 
     models.Events = db.checkin.define('event', {
@@ -1047,101 +1048,17 @@ exports.updateRegistrant = function(req, res) {
 
 exports.addRegistrant = function(req, res) {
 
-    var sid = req.session.id,
-        values = req.body,
-        sql =   "SELECT *  "+
-                "FROM biller  "+
-                "WHERE eventId = ? "+
-                "ORDER BY userId DESC LIMIT 1; "+
-                "SELECT * "+
-                "FROM group_members  "+
-                "WHERE event_id = ?  "+
-                "ORDER BY groupMemberId DESC LIMIT 1; "+
-                "SELECT * FROM event WHERE eventId = ?; "+
-                "SELECT * FROM event_fields WHERE event_id = ?;",
-        vars = [values.eventId, values.eventId, values.eventId, values.eventId],
-        retCallback = function(registrants) {
-            //if (err) console.log(err);
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, { 'Content-type': 'application/json' });
-            res.write(JSON.stringify(registrants[1][0]), 'utf-8');
-            res.end('\n');
-        };
-    //console.log(values);
-    connection.query(sql, vars, function(err, results) {
-        if (err) throw err;
-        //console.log(results);
-        var userId = results[0][0].userId + 1,
-            memberId = results[1][0].groupMemberId + 1,
-            confirmNum = results[2][0].confirm_number_prefix+(parseInt(results[1][0].confirmnum.split("-")[1])+1);
+  var sid = req.session.id,
+      values = req.body,
+      retCallback = function(registrants) {
+          //if (err) console.log(err);
+          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+          res.writeHead(200, { 'Content-type': 'application/json' });
+          res.write(JSON.stringify(registrants[1][0]), 'utf-8');
+          res.end('\n');
+      };
 
-        async.waterfall([
-            function(callback){
-                var vars = {
-                        "userId": userId,
-                        "eventId": values.eventId,
-                        "local_eventId": values.slabId,
-                        "type": "G",
-                        "register_date": "0000-00-00 00:00:00",
-                        "due_amount": 0.00,
-                        "confirmNum": confirmNum,
-                        "status": 1,
-                        "memtot": 1
-                    },
-                    sql = "INSERT INTO biller SET ?";
-                connection.query(sql, vars, function(err, insertResults) {
-                    if (err) throw err;
-                    callback(null, vars, memberId);
-
-                });
-            },
-            function(vars, memberId, callback){
-                var oldVars = vars,
-                    sql = "INSERT INTO group_members SET ?";
-                vars = {
-                    "groupMemberId": memberId,
-                    "event_id": oldVars.eventId,
-                    "groupUserId": oldVars.userId,
-                    "confirmnum": oldVars.confirmNum,
-                };
-                connection.query(sql, vars, function(err, insertResults) {
-                    if (err) throw err;
-                    callback(null, vars, insertResults.insertId);
-
-                });
-            },
-            function(vars, memberId, callback){
-                var oldVars = vars,
-                    sql = "",
-                    fvars;
-                vars = [];
-                results[3].forEach(function(field, index) {
-                    if (typeof values[field.name] != "undefined") {
-                        sql += "INSERT INTO member_field_values SET value = ?, event_id = ?, field_id = ?, member_id = ?; ";
-                        if (field.values) {
-                            fValues = field.values.split("|");
-                            values[field.name] = fValues.indexOf(values[field.name]);
-                        }
-                        vars.push(values[field.name], values.eventId, field.local_id, oldVars.groupMemberId);
-                        sql += "INSERT INTO biller_field_values SET value = ?, event_id = ?, field_id = ?, user_id = ?; ";
-                        if (field.values) {
-                            fValues = field.values.split("|");
-                            values[field.name] = fValues.indexOf(values[field.name]);
-                        }
-                        vars.push(values[field.name], values.eventId, field.local_id, oldVars.groupUserId);
-                        //console.log(values.fields[field.name], values.event_id, field.local_id, values.local_id);
-                    }
-                });
-                connection.query(sql, vars, function(err, insertResults) {
-                    if (err) throw err;
-                    callback(null, memberId);
-                });
-            }
-        ], function (err, result) {
-            //console.log(result);
-            registrants.searchAttendees(["registrantid"], result, 0, 20, false, retCallback);
-        });
-    });
+  registrants.initRegistrant(values, retCallback);
 };
 
 exports.getEvents = function(req, res) {
