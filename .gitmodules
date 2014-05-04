@@ -1,6 +1,3 @@
-[submodule "vendors/toolbar"]
-	path = vendors/toolbar
-	url = git://github.com/paulkinzett/toolbar.git
 [submodule "vendors/Backbone.Typeahead"]
 	path = vendors/Backbone.Typeahead
 	url = git://github.com/aodin/Backbone.Typeahead.git
