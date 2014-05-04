@@ -1,3 +1,0 @@
-[submodule "vendors/backbone.bootstrap-modal"]
-	path = vendors/backbone.bootstrap-modal
-	url = git://github.com/mattvoss/backbone.bootstrap-modal.git
