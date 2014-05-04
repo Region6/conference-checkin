@@ -1,7 +1,7 @@
 {
     "name": "ConferenceCheckin",
     "description": "An app to manage conference checkins",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "author": "Matt Voss",
     "repo": "git@git.vpr.int:export_controls.git",
     "keywords": [ ],
@@ -30,7 +30,8 @@
         "nconf": "latest",
         "node-registrants": "mattvoss/node-registrants",
         "rsvg": "latest",
-        "hummus": "latest"
+        "hummus": "latest",
+        "swag": "latest"
     },
     "devDependencies": {
     "grunt": "latest",
