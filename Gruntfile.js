@@ -32,7 +32,7 @@ module.exports = function(grunt) {
         'lib/backgrid/backgrid.js',
         'lib/backbone-pageable/lib/backbone-pageable.js',
         'lib/jQuery-CreditCardValidator/jquery.creditCardValidator.js',
-        'lib/credit_card_track_parser/lib/credit_card_track_parser',
+        'lib/credit_card_track_parser/lib/credit_card_track_parser.js',
         'lib/backgrid-paginator/backgrid-paginator.js',
         'lib/bootstrap-select/bootstrap-select.js'
       ],
