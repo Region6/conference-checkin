@@ -1,6 +1,3 @@
-[submodule "vendors/bootstrap"]
-	path = vendors/bootstrap
-	url = git://github.com/twitter/bootstrap.git
 [submodule "vendors/select2"]
 	path = vendors/select2
 	url = git://github.com/ivaynberg/select2.git
