@@ -137,9 +137,9 @@ var RegistrantView = Backbone.View.extend({
     saveRegistrant: function(e) {
         var view = this,
             errors = this.form.commit(); // runs schema validation
-        this.model.save({},{success: function(model, response) {
-            //view.savedRegistrant(model, view);
-            view.render();
+        this.model.save({},{patch: true, success: function(model, response) {
+            Messenger().post("Attendee ["+model.get("lastname")+", "+model.get("firstname")+"] has been updated.");
+            //view.render();
         }});
     },
 
