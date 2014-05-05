@@ -139,6 +139,7 @@ var RegistrantView = Backbone.View.extend({
             errors = this.form.commit(); // runs schema validation
         this.model.save({},{success: function(model, response) {
             //view.savedRegistrant(model, view);
+            view.render();
         }});
     },
 
