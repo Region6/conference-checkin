@@ -862,7 +862,7 @@ exports.genBadge = function(req, res) {
                 data: pdf
             };
 
-            nextBadgePrinter = ((nextBadgePrinter+1) <= printerUrl.badge.length) ? nextBadgePrinter + 1 : 0;
+            nextBadgePrinter = ((nextBadgePrinter+1) <= (printerUrl.badge.length-1)) ? nextBadgePrinter + 1 : 0;
             printer.execute("Print-Job", msg, function(err, res){
                 if (err) console.log(err);
                 resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
@@ -1031,7 +1031,8 @@ exports.updateRegistrant = function(req, res) {
     //console.log(values);
     registrants.updateAttendee(id, values, function(registrant) {
         //if (err) throw err;
-        if ("attend" in values) {
+        console.log(values);
+        if ("fields" in values && "attend" in values.fields) {
           if (values.attend) {
               logAction(sid, "registrant", id, "attend", "Registrant checked in");
               updateCheckedIn();
@@ -1202,6 +1203,7 @@ exports.getNumberCheckedIn = function(req, res) {
 
 var updateCheckedIn = function() {
   registrants.getCheckedInCount(function(count) {
+    console.log("Update checked in");
     logAction(0, "updates", count, "checkedIn", "Number checked in");
   });
 };
