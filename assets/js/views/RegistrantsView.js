@@ -54,7 +54,7 @@ var RegistrantsView = Backbone.View.extend({
                     })
                 },
                 {
-                    name: "registrantId",
+                    name: "displayId",
                     label: "ID",
                     editable: false,
                     // The cell type can be a reference of a Backgrid.Cell subclass, any Backgrid.Cell subclass instances like *id* above, or a string
