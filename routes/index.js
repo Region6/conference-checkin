@@ -28,6 +28,7 @@ var fs = require('fs'),
     Rsvg            = require('rsvg').Rsvg,
     Registrants = require("node-registrants"),
     registrants,
+    nextBadgePrinter = 0,
     opts = {},
     printerUrl = {
       "receipt": [],
@@ -851,7 +852,7 @@ exports.genBadge = function(req, res) {
         },
         printCallback = function(pdf) {
             console.log(printerUrl);
-            var printer = ipp.Printer(printerUrl.badge[0].url);
+            var printer = ipp.Printer(printerUrl.badge[nextBadgePrinter].url);
             var msg = {
                 "operation-attributes-tag": {
                     "requesting-user-name": "Station",
@@ -860,6 +861,8 @@ exports.genBadge = function(req, res) {
                 },
                 data: pdf
             };
+
+            nextBadgePrinter = ((nextBadgePrinter+1) <= printerUrl.badge.length) ? nextBadgePrinter + 1 : 0;
             printer.execute("Print-Job", msg, function(err, res){
                 if (err) console.log(err);
                 resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
