@@ -58,7 +58,7 @@ var RegistrantView = Backbone.View.extend({
         biller.schema = biller.get("schema").toJSON();
 
         this.form = new Backbone.Form({
-            model: this.model.get("fields")
+            model: this.model
 
         }).render();
 
