@@ -56,7 +56,8 @@ var ChangeConfirmationView = Backbone.View.extend({
             view = this;
         this.model.save({"fields": {"confirmnum": values.confirmnum} }, {patch: true, success: function(model, response) {
             view.parent.savedRegistrant(model, view);
-            modal.close();
+            Messenger().post("Confirmation has been changed.");
+            //modal.close();
         }});
     }
 

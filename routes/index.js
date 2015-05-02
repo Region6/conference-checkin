@@ -1,71 +1,101 @@
-(function(){
+(function () {
   "use strict";
 
-var fs = require('fs'),
-    path = require('path'),
-    mysql = require('mysql'),
-    email = require('nodemailer'),
-    crypto = require('crypto'),
-    spawn = require('child_process').spawn,
-    execFile = require('child_process').execFile,
-    async = require('async'),
-    Acl = require('acl'),
-    uuid = require("node-uuid"),
-    glob = require('glob'),
-    underscore = require('underscore'),
-    pdf417 = require('pdf417'),
-    ipp = require('ipp'),
-    handlebars = require('handlebars'),
-    authnet = require('authnet'),
-    request = require('request'),
-    parser = require('xml2json'),
-    NodePDF = require('nodepdf'),
-    Swag = require('swag'),
-    Sequelize = require("sequelize"),
-    svgHeader = fs.readFileSync("./header.svg", "utf8"),
-    receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8"),
-    hummus          = require('hummus'),
-    Rsvg            = require('rsvg').Rsvg,
-    Registrants = require("node-registrants"),
-    registrants,
-    nextBadgePrinter = 0,
-    opts = {},
-    printerUrl = {
-      "receipt": [],
-      "badge": []
-    },
-    connection = null,
-    client = null,
-    transport = null,
-    acl = null,
-    db = {},
-    reconnectTries = 0,
-    models = {} ;
-
-Swag.registerHelpers(handlebars);
-/**
- * usages (handlebars)
- * {{short_string this}}
- * {{short_string this length=150}}
- * {{short_string this length=150 trailing="---"}}
-**/
-handlebars.registerHelper('short_string', function(context, options){
-    //console.log(options);
-    var maxLength = options.hash.length || 100;
-    var trailingString = options.hash.trailing || '';
-    if (typeof context != "undefined") {
-        if(context.length > maxLength){
-            return context.substring(0, maxLength) + trailingString;
+  var fs = require('fs'),
+      path = require('path'),
+      mysql = require('mysql'),
+      email = require('nodemailer'),
+      crypto = require('crypto'),
+      spawn = require('child_process').spawn,
+      execFile = require('child_process').execFile,
+      async = require('async'),
+      Acl = require('acl'),
+      uuid = require("node-uuid"),
+      glob = require('glob'),
+      underscore = require('underscore'),
+      pdf417 = require('pdf417'),
+      ipp = require('ipp'),
+      handlebars = require('handlebars'),
+      moment = require('moment-timezone'),
+      AuthorizeRequest = require('auth-net-request'),
+      request = require('request'),
+      parser = require('xml2json'),
+      parseString = require('xml2js').parseString,
+      NodePDF = require('nodepdf'),
+      pdfjs = require('pdfjs'),
+      notoSansRegular = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans.ttf')),
+      notoSansBold = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans-Bold.ttf')),
+      font = {
+        notosans: {
+          regular: pdfjs.createTTFFont(notoSansRegular),
+          bold:    pdfjs.createTTFFont(notoSansBold)
         }
+      },
+      Swag = require('swag'),
+      Sequelize = require("sequelize"),
+      svgHeader = fs.readFileSync("./header.svg", "utf8"),
+      receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8"),
+      qr              = require('qr-image'),
+      hummus          = require('hummus'),
+      Rsvg            = require('rsvg').Rsvg,
+      Registrants = require("node-registrants"),
+      registrants,
+      nextBadgePrinter = 0,
+      opts = {},
+      printerUrl = {
+        "receipt": [],
+        "badge": []
+      },
+      connection = null,
+      client = null,
+      transport = null,
+      acl = null,
+      db = {},
+      reconnectTries = 0,
+      models = {},
+      getPrinter = function (callback) {
+        var addPrinter = function(item, cb) {
+              //console.log("printer", item);
+              printerUrl[item.type].push({url: "http://" + item.host +item.uri});
+              cb(null);
+            };
+        models.Printers.findAll(
+          {
+            order: 'type ASC'
+          }
+        )
+        .success(function(printers) {
+          async.each(printers, addPrinter, function(err){
+            //console.log(err);
+            callback();
+          });
+        });
+      };
+
+  Swag.registerHelpers(handlebars);
+  /**
+   * usages (handlebars)
+   * {{short_string this}}
+   * {{short_string this length=150}}
+   * {{short_string this length=150 trailing="---"}}
+  **/
+  handlebars.registerHelper('short_string', function (context, options) {
+    //console.log(options);
+    var maxLength = options.hash.length || 100,
+      trailingString = options.hash.trailing || '';
+    if (typeof context !== "undefined") {
+      if (context.length > maxLength) {
+        return context.substring(0, maxLength) + trailingString;
+      }
     }
     return context;
-});
+  });
 
-exports.setKey = function(key, value) {
+  exports.setKey = function (key, value) {
     opts[key] = value;
-};
+  };
 
-exports.initialize = function() {
+  exports.initialize = function () {
     //Initialize Mysql
     //getConnection();
 
@@ -74,16 +104,17 @@ exports.initialize = function() {
       opts.configs.get("mysql:username"),
       opts.configs.get("mysql:password"),
       {
-          dialect: 'mysql',
-          omitNull: true,
-          host: opts.configs.get("mysql:host") || "localhost",
-          port: opts.configs.get("mysql:port") || 3306,
-          pool: { maxConnections: 5, maxIdleTime: 30},
-          define: {
-            freezeTableName: true,
-            timestamps: false
-          }
-    });
+        dialect: 'mysql',
+        omitNull: true,
+        host: opts.configs.get("mysql:host") || "localhost",
+        port: opts.configs.get("mysql:port") || 3306,
+        pool: { maxConnections: 5, maxIdleTime: 30},
+        define: {
+          freezeTableName: true,
+          timestamps: false
+        }
+      }
+    );
 
     registrants = Registrants.init({
       "host": opts.configs.get("mysql:host") || "localhost",
@@ -104,7 +135,7 @@ exports.initialize = function() {
       dtend:             { type: Sequelize.DATE },
       dtstarttime :             { type: Sequelize.TEXT },
       dtendtime :             { type: Sequelize.TEXT },
-      latefee :          { type: Sequelize.DECIMAL(10,2) },
+      latefee :          { type: Sequelize.DECIMAL(10, 2) },
       latefeedate:             { type: Sequelize.DATE },
       email:             { type: Sequelize.TEXT },
       max_registrations :              { type: Sequelize.INTEGER },
@@ -112,7 +143,7 @@ exports.initialize = function() {
       topmsg:             { type: Sequelize.TEXT },
       cut_off_date:             { type: Sequelize.DATE },
       discount_type :              { type: Sequelize.INTEGER(2) },
-      discount_amount :          { type: Sequelize.DECIMAL(10,2) },
+      discount_amount :          { type: Sequelize.DECIMAL(10, 2) },
       thksmsg:             { type: Sequelize.TEXT },
       thksmsg_set :              { type: Sequelize.INTEGER(4) },
       event_describe:             { type: Sequelize.TEXT },
@@ -152,7 +183,7 @@ exports.initialize = function() {
       change_date:              { type: Sequelize.STRING(20) },
       detail_itemid :              { type: Sequelize.INTEGER(4) },
       tax_enable :              { type: Sequelize.INTEGER(2) },
-      tax_amount :          { type: Sequelize.DECIMAL(8,2) },
+      tax_amount :          { type: Sequelize.DECIMAL(8, 2) },
       payment_id :              { type: Sequelize.INTEGER(4) },
       repetition_id :              { type: Sequelize.INTEGER(7) },
       parent_id :              { type: Sequelize.INTEGER(7) },
@@ -168,9 +199,9 @@ exports.initialize = function() {
       user_id :              { type: Sequelize.INTEGER(7) },
       changefee_enable :              { type: Sequelize.INTEGER(2) },
       changefee_type :              { type: Sequelize.INTEGER(2) },
-      changefee :          { type: Sequelize.DECIMAL(8,2) },
+      changefee :          { type: Sequelize.DECIMAL(8, 2) },
       cancelfee_type :              { type: Sequelize.INTEGER(2) },
-      cancelfee :          { type: Sequelize.DECIMAL(8,2) },
+      cancelfee :          { type: Sequelize.DECIMAL(8, 2) },
       usetimecheck :              { type: Sequelize.INTEGER(1) },
       group_registration_type:              { type: Sequelize.STRING(20) },
       cancel_enable :              { type: Sequelize.INTEGER(1) },
@@ -281,10 +312,10 @@ exports.initialize = function() {
       userId :              { type: Sequelize.INTEGER },
       eventId :             { type: Sequelize.STRING(36) },
       local_eventId :       { type: Sequelize.INTEGER },
-      type :                { type: Sequelize.ENUM('I','G') },
+      type :                { type: Sequelize.ENUM('I', 'G') },
       register_date :       { type: Sequelize.DATE },
       payment_type :        { type: Sequelize.STRING(100) },
-      due_amount :          { type: Sequelize.DECIMAL(10,2) },
+      due_amount :          { type: Sequelize.DECIMAL(10, 2) },
       pay_later_option:     { type: Sequelize.INTEGER },
       confirmNum :          { type: Sequelize.STRING(50) },
       user_id :             { type: Sequelize.INTEGER },
@@ -298,7 +329,7 @@ exports.initialize = function() {
       billing_state :       { type: Sequelize.STRING(150) },
       billing_zipcode :     { type: Sequelize.STRING(10) },
       billing_email :       { type: Sequelize.STRING(150) },
-      due_payment :         { type: Sequelize.DECIMAL(10,2) },
+      due_payment :         { type: Sequelize.DECIMAL(10, 2) },
       status :              { type: Sequelize.INTEGER },
       attend :              { type: Sequelize.BOOLEAN },
       paid_amount :         { type: Sequelize.STRING(30) },
@@ -363,7 +394,7 @@ exports.initialize = function() {
       electionid :            { type: Sequelize.INTEGER },
       registrantid :          { type: Sequelize.STRING(25) },
       candidateid :           { type: Sequelize.INTEGER },
-      votertype:              { type: Sequelize.ENUM('management','non-management') },
+      votertype:              { type: Sequelize.ENUM('management', 'non-management') },
       datecast :              { type: Sequelize.DATE }
     });
 
@@ -371,7 +402,7 @@ exports.initialize = function() {
       id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       conferenceid :          { type: Sequelize.INTEGER(11) },
       name :                  { type: Sequelize.TEXT },
-      type :                  { type: Sequelize.ENUM('receipt','badge','other'), default: 'receipt'  },
+      type :                  { type: Sequelize.ENUM('receipt', 'badge', 'other'), default: 'receipt'  },
       host :                  { type: Sequelize.TEXT },
       uri :                   { type: Sequelize.TEXT }
     });
@@ -425,492 +456,521 @@ exports.initialize = function() {
     });
 
     getPrinter(function() {
-        console.log("got printers");
+      console.log("got printers");
     });
     //Initialize Email Client
     transport = email.createTransport("sendmail", {
-        args: ["-f noreply@regionvivpp.org"]
+      args: ["-f noreply@regionvivpp.org"]
     });
-};
+  };
 
-var getPrinter = function(callback) {
-    var addPrinter = function(item, cb) {
-          printerUrl[item.type].push({url:"http://"+item.host+item.uri});
-        };
-    models.Printers.findAll(
-      {
-        order: 'type ASC'
+  var processGroupMembers = function(extra, members, registrants, index, cb) {
+      var sql = "",
+          member = members[index],
+          ignoreNames = ["firstname", "lastname"];
+      index = index || 0;
+      var vars = [ member.event_id,
+                  parseInt(member.groupUserId),
+                  member.event_id,
+                  member.event_id,
+                  parseInt(member.groupMemberId),
+                  member.event_id,
+                  member.event_id,
+                  parseInt(member.groupUserId),
+                  member.event_id,
+                  member.event_id,
+                  member.event_id,
+                  member.event_id,
+                  member.event_id,
+                  member.event_id,
+                  member.event_id,
+                  parseInt(member.groupUserId),
+                  member.event_id,
+                  member.event_id,
+                  member.event_id,
+                  parseInt(member.groupUserId),
+                  member.event_id,
+                  parseInt(member.groupUserId),
+                  member.event_id,
+                  member.event_id
+          ];
+      sql = " (SELECT 'b'as typeRow, biller_field_values.user_id as userId, biller_field_values.value, event_fields.*"+
+            " FROM biller_field_values"+
+            " JOIN event_fields ON (biller_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
+            " WHERE user_id = ? AND biller_field_values.event_id = ?)"+
+            " UNION"+
+            " (SELECT 'g'as typeRow, member_field_values.member_id as userId, member_field_values.value, event_fields.*"+
+            " FROM member_field_values"+
+            " JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
+            " WHERE member_id = ? AND member_field_values.event_id = ?) ORDER BY ordering ASC;"+
+            " SELECT biller_field_values.user_id as userId, biller_field_values.value, event_fields.*"+
+            " FROM biller_field_values"+
+            " JOIN event_fields ON (biller_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
+            " WHERE user_id = ? AND biller_field_values.event_id = ? ORDER BY ordering ASC;"+
+            " SELECT id, groupUserId, attend, checked_in_time, confirmnum, "+
+            " (SELECT value "+
+            " FROM member_field_values "+
+            " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
+            " WHERE event_fields.event_id = ? AND event_fields.class = 'firstname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as firstname,"+
+            " (SELECT value "+
+            " FROM member_field_values "+
+            " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
+            " WHERE event_fields.event_id = ? AND event_fields.class = 'lastname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as lastname,"+
+            " (SELECT value "+
+            " FROM member_field_values "+
+            " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
+            " WHERE event_fields.event_id = ? AND event_fields.class = 'company' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as company"+
+            " FROM group_members"+
+            " WHERE groupUserId = ? AND event_id = ?;"+
+            " SELECT * FROM event_fields WHERE event_id = ? AND badge_order > 0 ORDER BY badge_order ASC;"+
+            " SELECT event_fees.*, biller.transaction_id FROM event_fees LEFT JOIN biller ON event_fees.user_id = biller.user_id WHERE event_fees.event_id = ? AND event_fees.user_id = ? ORDER BY event_fees.id ASC;"+
+            " SELECT * FROM biller WHERE eventId = ? AND userId = ? ORDER BY id ASC;"+
+            " SELECT * FROM event WHERE eventId = ?;"+
+            " SELECT * FROM event_fields WHERE event_id = ? ORDER BY ordering ASC;";
+      if (extra) {
+          sql += " SELECT * FROM transactions WHERE invoiceNumber = ? ORDER BY submitTimeUTC ASC;";
+          vars.push(member.billerConfirm);
       }
-    )
-    .success(function(printers) {
-      async.each(printers, addPrinter, function(err){
-        callback();
+      //console.log(sql);
+      connection.query(sql, vars, function(err, results) {
+          if (err) { throw err; }
+          if (results[0]) {
+              var ba = [],
+                  exhibitorFields = ["firstname", "lastname", "email", "phone", "title"],
+                  reg = {
+                      event: results[6][0],
+                      fields: {
+                          userId: results[0][0].userId,
+                          infoField: '',
+                          manageField: '<div class="btn-group"><button class="btn dropdown-toggle" data-toggle="dropdown">Manage <span class="caret"></span></button><ul class="dropdown-menu"><li>'
+                      },
+                      biller: {
+                          schema:{},
+                          fieldset:[]
+                      },
+                      badgeFields:[],
+                      linked: results[2],
+                      payment: results[4],
+                      local_id: member.groupMemberId,
+                      id: member.id,
+                      event_id: member.event_id,
+                      registrantId: member.badge_prefix+"-"+member.id,
+                      confirmation: member.confirmnum || results[5][0].confirmNum,
+                      paid: false,
+                      checked_in: member.attend,
+                      checked_in_time: member.checked_in_time,
+                      schema:{},
+                      fieldset:[],
+                      firstname: "",
+                      lastname: "",
+                      company: "",
+                      badge_prefix: member.badge_prefix,
+                      biller_id: results[5][0].userId
+                  },
+                  types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'];
+              if (member.attend) {
+                  reg.fields.infoField += '<i class="icon-ok icon-large" style="color: #468847;"></i>';
+                  reg.fields.manageField += '<a href="#" class="checkoutRegistrant">Check Out</a>';
+              } else {
+                  reg.fields.infoField += '<i class="icon-remove icon-large" style="color: #b94a48;"></i>';
+                  reg.fields.manageField += '<a href="#" class="checkinRegistrant">Check In</a>';
+              }
+              reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><li><a href="#" class="printReceipt">Print Receipt</a></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
+              results[7].forEach(function(row, index) {
+                  var schemaRow = {
+                      "title": row.label,
+                      "type": types[row.type]
+                  };
+                  if (row.values && (row.type === 4 || row.type === 1)) {
+                      var values = row.values.split("|");
+                      values.unshift("");
+                      schemaRow.options = values;
+                  }
+                  reg.schema["fields."+row.name] = schemaRow;
+                  reg.fieldset.push("fields."+row.name);
+              });
+              results[0].forEach(function(row, index) {
+                  if (row.values && (row.type === 4 || row.type === 1)) {
+                      var values = row.values.split("|");
+                      reg.fields[row.name] = values[parseInt(row.value)];
+                  } else  {
+                      //console.log(row.typeRow, row.name);
+                      reg.fields[row.name] = row.value;
+                  }
+
+                  if (row.class) {
+                      if (underscore.contains(ba, row.class) === false) {
+                          reg[row.class] = reg.fields[row.name];
+                      }
+                  }
+
+                  //console.log(row.class);
+                  /*
+                  if (underscore.contains(exhibitorFields, row.class.slice(3))) {
+                      ba.push(row.class.slice(3));
+                      reg[row.class.slice(3)] = reg.fields[row.name];
+                  }
+                  */
+              });
+              results[1].forEach(function(row, index) {
+                  var schemaRow = {
+                      "title": row.label,
+                      "type": types[row.type]
+                  };
+                  if (row.values && (row.type === 4 || row.type === 1)) {
+                      var values = row.values.split("|");
+                      schemaRow.options = values;
+                      reg.biller[row.name] = values[parseInt(row.value)];
+                  } else  {
+                      //console.log(row.typeRow, row.name);
+                      reg.biller[row.name] = row.value;
+                  }
+                  reg.biller.schema[row.name] = schemaRow;
+                  reg.biller.fieldset.push(row.name);
+              });
+              results[3].forEach(function(row, index) {
+                  reg.badgeFields.push(row.class);
+              });
+              results[4].forEach(function(row, index) {
+                  row.fee = parseFloat(row.fee);
+                  row.paid_amount = parseFloat(row.paid_amount);
+                  reg.paid = (row.fee > row.paid_amount) ? false : true;
+              });
+
+              reg.linked.forEach(function(row, index) {
+                  row.badge_prefix = member.badge_prefix;
+                  row.company = reg.company;
+                  row.confirmation = row.confirmnum || results[5][0].confirmNum;
+              });
+              if (reg.paid) {
+                  reg.fields.infoField += '&nbsp; <i class="icon-money icon-large" style="color: #468847;"></i>';
+              } else {
+                  reg.fields.infoField += '&nbsp; <i class="icon-money icon-large" style="color: #b94a48;"></i>';
+              }
+              reg.payment = results[4];
+              if (extra) {
+                  console.log("credit card");
+                  console.log(results[8]);
+                  reg.creditCardTrans = results[8];
+              }
+              //console.log(reg);
+              registrants[1].push(reg);
+          }
+          index++;
+          //console.log(index);
+          if (members.length >= (index + 1)) {
+              processGroupMembers(extra, members, registrants, index, cb);
+          } else {
+              cb(registrants);
+          }
       });
-    });
-};
 
-var processGroupMembers = function(extra, members, registrants, index, cb) {
-    var sql = "",
-        member = members[index],
-        ignoreNames = ["firstname", "lastname"];
-    index = index || 0;
-    var vars = [ member.event_id,
-                parseInt(member.groupUserId),
-                member.event_id,
-                member.event_id,
-                parseInt(member.groupMemberId),
-                member.event_id,
-                member.event_id,
-                parseInt(member.groupUserId),
-                member.event_id,
-                member.event_id,
-                member.event_id,
-                member.event_id,
-                member.event_id,
-                member.event_id,
-                member.event_id,
-                parseInt(member.groupUserId),
-                member.event_id,
-                member.event_id,
-                member.event_id,
-                parseInt(member.groupUserId),
-                member.event_id,
-                parseInt(member.groupUserId),
-                member.event_id,
-                member.event_id
-        ];
-    sql = " (SELECT 'b'as typeRow, biller_field_values.user_id as userId, biller_field_values.value, event_fields.*"+
-          " FROM biller_field_values"+
-          " JOIN event_fields ON (biller_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE user_id = ? AND biller_field_values.event_id = ?)"+
-          " UNION"+
-          " (SELECT 'g'as typeRow, member_field_values.member_id as userId, member_field_values.value, event_fields.*"+
-          " FROM member_field_values"+
-          " JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE member_id = ? AND member_field_values.event_id = ?) ORDER BY ordering ASC;"+
-          " SELECT biller_field_values.user_id as userId, biller_field_values.value, event_fields.*"+
-          " FROM biller_field_values"+
-          " JOIN event_fields ON (biller_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE user_id = ? AND biller_field_values.event_id = ? ORDER BY ordering ASC;"+
-          " SELECT id, groupUserId, attend, checked_in_time, confirmnum, "+
-          " (SELECT value "+
-          " FROM member_field_values "+
-          " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'firstname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as firstname,"+
-          " (SELECT value "+
-          " FROM member_field_values "+
-          " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'lastname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as lastname,"+
-          " (SELECT value "+
-          " FROM member_field_values "+
-          " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'company' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as company"+
-          " FROM group_members"+
-          " WHERE groupUserId = ? AND event_id = ?;"+
-          " SELECT * FROM event_fields WHERE event_id = ? AND badge_order > 0 ORDER BY badge_order ASC;"+
-          " SELECT event_fees.*, biller.transaction_id FROM event_fees LEFT JOIN biller ON event_fees.user_id = biller.user_id WHERE event_fees.event_id = ? AND event_fees.user_id = ? ORDER BY event_fees.id ASC;"+
-          " SELECT * FROM biller WHERE eventId = ? AND userId = ? ORDER BY id ASC;"+
-          " SELECT * FROM event WHERE eventId = ?;"+
-          " SELECT * FROM event_fields WHERE event_id = ? ORDER BY ordering ASC;";
-    if (extra) {
-        sql += " SELECT * FROM transactions WHERE invoiceNumber = ? ORDER BY submitTimeUTC ASC;";
-        vars.push(member.billerConfirm);
-    }
-    //console.log(sql);
-    connection.query(sql, vars, function(err, results) {
-        if (err) throw err;
-        if (results[0]) {
-            var ba = [],
-                exhibitorFields = ["firstname", "lastname", "email", "phone", "title"],
-                reg = {
-                    event: results[6][0],
-                    fields: {
-                        userId: results[0][0].userId,
-                        infoField: '',
-                        manageField: '<div class="btn-group"><button class="btn dropdown-toggle" data-toggle="dropdown">Manage <span class="caret"></span></button><ul class="dropdown-menu"><li>'
-                    },
-                    biller: {
-                        schema:{},
-                        fieldset:[]
-                    },
-                    badgeFields:[],
-                    linked: results[2],
-                    payment: results[4],
-                    local_id: member.groupMemberId,
-                    id: member.id,
-                    event_id: member.event_id,
-                    registrantId: member.badge_prefix+"-"+member.id,
-                    confirmation: member.confirmnum || results[5][0].confirmNum,
-                    paid: false,
-                    checked_in: member.attend,
-                    checked_in_time: member.checked_in_time,
-                    schema:{},
-                    fieldset:[],
-                    firstname: "",
-                    lastname: "",
-                    company: "",
-                    badge_prefix: member.badge_prefix,
-                    biller_id: results[5][0].userId
-                },
-                types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'];
-            if (member.attend) {
-                reg.fields.infoField += '<i class="icon-ok icon-large" style="color: #468847;"></i>';
-                reg.fields.manageField += '<a href="#" class="checkoutRegistrant">Check Out</a>';
-            } else {
-                reg.fields.infoField += '<i class="icon-remove icon-large" style="color: #b94a48;"></i>';
-                reg.fields.manageField += '<a href="#" class="checkinRegistrant">Check In</a>';
+  };
+
+  var createBadge = function(registrant, callback) {
+    //console.log("Creating Badge #",index);
+    console.log(__dirname);
+    var pageBuilder = null,
+        pdfData = "",
+        exhibitorFields = ["firstname", "lastname", "email", "phone", "title"];
+
+    async.waterfall([
+        function(cb){
+          models.Badges.find({
+            where: {
+              eventId: registrant.event_id
             }
-            reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><li><a href="#" class="printReceipt">Print Receipt</a></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
-            results[7].forEach(function(row, index) {
-                var schemaRow = {
-                    "title": row.label,
-                    "type": types[row.type]
-                };
-                if (row.values && (row.type == 4 || row.type == 1)) {
-                    var values = row.values.split("|");
-                    values.unshift("");
-                    schemaRow.options = values;
-                }
-                reg.schema["fields."+row.name] = schemaRow;
-                reg.fieldset.push("fields."+row.name);
-            });
-            results[0].forEach(function(row, index) {
-                if (row.values && (row.type == 4 || row.type == 1)) {
-                    var values = row.values.split("|");
-                    reg.fields[row.name] = values[parseInt(row.value)];
-                } else  {
-                    //console.log(row.typeRow, row.name);
-                    reg.fields[row.name] = row.value;
-                }
+          })
+          .success(function(badge) {
+            cb(null, badge.template.toString());
+          });
+        },
+        function(template, cb){
+         // console.log(template);
+          pageBuilder = handlebars.compile(template);
+          var code = registrant.registrantId+"|"+registrant.confirmation;
+          registrant.badgeFields.forEach(function(field, index) {
+              code += "|" + registrant[field];
+          });
+          console.log(code);
+         // var svgBarcode = qr.imageSync(code, { type: 'svg', ec_level: 'L', margin: 0, size: 2 });
 
-                if (row.class) {
-                    if (underscore.contains(ba, row.class) === false) {
-                        reg[row.class] = reg.fields[row.name];
+          var barcode = pdf417.barcode(code, 5),
+              y = 0,
+              bw = 1.25,
+              bh = 0.75,
+              rect = 32000,
+              blocks = [],
+              svgBarcode = "",
+              iterateCols = function(r, cb) {
+                var x = 0;
+                async.timesSeries(
+                  barcode.num_cols,
+                  function(c, next){
+                    var block = "";
+                    if (barcode.bcode[r][c] == 1) {
+                      block = '<rect id="rect'+rect+'" height="'+bh+'" width="'+bw+'" y="'+y+'" x="'+x+'" />';
                     }
-                }
-
-                //console.log(row.class);
-                /*
-                if (underscore.contains(exhibitorFields, row.class.slice(3))) {
-                    ba.push(row.class.slice(3));
-                    reg[row.class.slice(3)] = reg.fields[row.name];
-                }
-                */
-            });
-            results[1].forEach(function(row, index) {
-                var schemaRow = {
-                    "title": row.label,
-                    "type": types[row.type]
-                };
-                if (row.values && (row.type == 4 || row.type == 1)) {
-                    var values = row.values.split("|");
-                    schemaRow.options = values;
-                    reg.biller[row.name] = values[parseInt(row.value)];
-                } else  {
-                    //console.log(row.typeRow, row.name);
-                    reg.biller[row.name] = row.value;
-                }
-                reg.biller.schema[row.name] = schemaRow;
-                reg.biller.fieldset.push(row.name);
-            });
-            results[3].forEach(function(row, index) {
-                reg.badgeFields.push(row.class);
-            });
-            results[4].forEach(function(row, index) {
-                row.fee = parseFloat(row.fee);
-                row.paid_amount = parseFloat(row.paid_amount);
-                reg.paid = (row.fee > row.paid_amount) ? false : true;
-            });
-
-            reg.linked.forEach(function(row, index) {
-                row.badge_prefix = member.badge_prefix;
-                row.company = reg.company;
-                row.confirmation = row.confirmnum || results[5][0].confirmNum;
-            });
-            if (reg.paid) {
-                reg.fields.infoField += '&nbsp; <i class="icon-money icon-large" style="color: #468847;"></i>';
-            } else {
-                reg.fields.infoField += '&nbsp; <i class="icon-money icon-large" style="color: #b94a48;"></i>';
+                    x += bw;
+                    next(null, block);
+                  },
+                  function(err, blks) {
+                    cb(blks);
+                  }
+                );
+              },
+              makeSvg = function(svgbcode) {
+                svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(60,300)">'+svgbcode+'</g>';
+                registrant.barcode = svgBarcode;
+                registrant.fields.id = registrant.registrantId;
+                registrant.paddedRegId = registrant.registrantId;
+                var svg = pageBuilder(registrant);
+                svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
+                fs.writeFile('badge.'+registrant.registrantId+".svg", svg, function (err) {
+                  if (err) throw err;
+                  console.log('It\'s saved!');
+                });
+                var svgPdf = new Rsvg(svg);
+                svgPdf.on('load', function() {
+                  var data = svgPdf.render({
+                        format: 'pdf',
+                        height: 792,
+                        width: 612
+                      }).data;
+                  cb(null, data);
+                });
+              };
+            async.timesSeries(
+              barcode.num_rows,
+              function(n, next){
+                iterateCols(n, function(blks) {
+                  y += bh;
+                  setImmediate(function() {
+                    next(null, blks.join(""));
+                  });
+                });
+              },
+              function(err, blks) {
+                makeSvg(blks.join(""));
+              }
+            );
+         /*
+          parseString(
+            svgBarcode,
+            function (err, result) {
+              registrant.barcode = result.svg.path[0].$.d;
+              registrant.fields.id = registrant.registrantId;
+              var svg = pageBuilder(registrant);
+              svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
+              //fs.writeFileSync(barcodeFileName, svgBarcode);
+              //fs.writeFileSync(svgFileName, svg);
+              //svgPaths[pathIndex].push(svgFileName);
+              var svgPdf = new Rsvg(svg);
+              svgPdf.on('load', function() {
+                var data = svgPdf.render({
+                      format: 'pdf',
+                      height: 792,
+                      width: 612
+                    }).data;
+                cb(null, {id: registrant.registrantId, pdf: data.toString('base64')});
+             });
             }
-            reg.payment = results[4];
-            if (extra) {
-                console.log("credit card");
-                console.log(results[8]);
-                reg.creditCardTrans = results[8];
-            }
-            //console.log(reg);
-            registrants[1].push(reg);
+          );
+          */
         }
-        index++;
-        //console.log(index);
-        if (members.length >= (index + 1)) {
-            processGroupMembers(extra, members, registrants, index, cb);
-        } else {
-            cb(registrants);
-        }
+    ], function (err, pdf) {
+      callback(pdf);
     });
+  };
 
-};
-
-var createBadge = function(registrant, callback) {
-  //console.log("Creating Badge #",index);
-  console.log(__dirname);
-  var pageBuilder = null,
-      code = registrant.id+"|"+registrant.confirmation,
-      pdfData = "",
-      exhibitorFields = ["firstname", "lastname", "email", "phone", "title"];
-
-  async.waterfall([
-      function(cb){
-        models.Badges.find({
-          where: {
-            eventId: registrant.event_id
-          }
-        })
-        .success(function(badge) {
-          cb(null, badge.template.toString());
-        });
-      },
-      function(template, cb){
-       // console.log(template);
-        pageBuilder = handlebars.compile(template);
-
-        code = registrant.registrantId+"|"+registrant.confirmation;
-        registrant.badgeFields.forEach(function(field, index) {
-            code += "|" + registrant[field];
-        });
-        var barcode = pdf417.barcode(code, 5);
-        var y = 0,
-            bw = 1.25,
-            bh = 0.75,
-            svgbcode = "",
-            rect = 32000;
-        // for each row
-        for (var r = 0; r < barcode.num_rows; r++) {
-            var x = 0;
-            // for each column
-            for (var c = 0; c < barcode.num_cols; c++) {
-                if (barcode.bcode[r][c] == 1) {
-                    svgbcode += '<rect id="rect'+rect+'" height="'+bh+'" width="'+bw+'" y="'+y+'" x="'+x+'" />';
-                    rect++;
-                }
-                x += bw;
-            }
-            y += bh;
-        }
-        var svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(60,300)">'+svgbcode;
-        svgBarcode += '<text xml:space="preserve" style="font-size:12px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" id="text29057" sodipodi:linespacing="125%" x="0" y="'+(y+10)+'">'+registrant.registrantId+'</text></g>';
-        registrant.barcode = svgBarcode;
-
-        var svg = pageBuilder(registrant);
-        svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
-        var rsvg = new Rsvg();
-        rsvg.on('finish', function() {
-          var pdf = rsvg.render({
-                format: 'pdf',
-                height: 792,
-                width: 612
-              }).data;
-          cb(null, pdf);
-        });
-        rsvg.write(svg);
-        rsvg.end();
-
+  var saveTransaction = function(res, callback) {
+      var sql = "INSERT INTO transactions SET ?",
+          vars = underscore.clone(res.transaction);
+      delete vars.batch;
+      delete vars.payment;
+      delete vars.order;
+      delete vars.billTo;
+      delete vars.shipTo;
+      delete vars.recurringBilling;
+      delete vars.customer;
+      delete vars.customerIP;
+      vars = underscore.extend(vars, res.transaction.batch);
+      vars = underscore.extend(vars, res.transaction.order);
+      vars = underscore.extend(vars, res.transaction.payment.creditCard);
+      vars = underscore.extend(vars, res.transaction.customer);
+      vars = underscore.extend(vars, {
+          billToFirstName: res.transaction.billTo.firstName,
+          billToLastName: res.transaction.billTo.lastName,
+          billToAddress: res.transaction.billTo.address,
+          billToCity: res.transaction.billTo.city,
+          billToState: res.transaction.billTo.state,
+          billToZip: res.transaction.billTo.zip,
+          billToPhoneNumber: res.transaction.billTo.phoneNumber
+      });
+      if ("shipTo" in res.transaction) {
+          vars = underscore.extend(vars, {
+              shipToFirstName: res.transaction.shipTo.firstName,
+              shipToLastName: res.transaction.shipTo.lastName,
+              shipToAddress: res.transaction.shipTo.address,
+              shipToCity: res.transaction.shipTo.city,
+              shipToState: res.transaction.shipTo.state,
+              shipToZip: res.transaction.shipTo.zip
+          });
       }
-  ], function (err, pdf) {
-    callback(pdf);
-  });
-};
+      connection.query(sql, vars, function(err, result) {
+          if (err) { throw err; }
+          callback({dbResult:result, creditResult:res});
+      });
+  };
 
-var saveTransaction = function(res, callback) {
-    var sql = "INSERT INTO transactions SET ?",
-        vars = underscore.clone(res.transaction);
-    delete vars.batch;
-    delete vars.payment;
-    delete vars.order;
-    delete vars.billTo;
-    delete vars.shipTo;
-    delete vars.recurringBilling;
-    delete vars.customer;
-    delete vars.customerIP;
-    vars = underscore.extend(vars, res.transaction.batch);
-    vars = underscore.extend(vars, res.transaction.order);
-    vars = underscore.extend(vars, res.transaction.payment.creditCard);
-    vars = underscore.extend(vars, res.transaction.customer);
-    vars = underscore.extend(vars, {
-        billToFirstName: res.transaction.billTo.firstName,
-        billToLastName: res.transaction.billTo.lastName,
-        billToAddress: res.transaction.billTo.address,
-        billToCity: res.transaction.billTo.city,
-        billToState: res.transaction.billTo.state,
-        billToZip: res.transaction.billTo.zip,
-        billToPhoneNumber: res.transaction.billTo.phoneNumber
-    });
-    if ("shipTo" in res.transaction) {
-        vars = underscore.extend(vars, {
-            shipToFirstName: res.transaction.shipTo.firstName,
-            shipToLastName: res.transaction.shipTo.lastName,
-            shipToAddress: res.transaction.shipTo.address,
-            shipToCity: res.transaction.shipTo.city,
-            shipToState: res.transaction.shipTo.state,
-            shipToZip: res.transaction.shipTo.zip
-        });
-    }
-    connection.query(sql, vars, function(err, result) {
-        if (err) throw err;
-        callback({dbResult:result, creditResult:res});
-    });
-};
+  /************
+  * Routes
+  *************/
 
-/************
-* Routes
-*************/
+  exports.index = function(req, res){
+      var sid = (typeof req.session !== "undefined") ? req.session.id : null;
+      //Regenerates the JS/template file
+      //if (req.url.indexOf('/bundle') === 0) { bundle(); }
 
-exports.index = function(req, res){
-    var sid = (typeof req.session != "undefined") ? req.session.id : null;
-    //Regenerates the JS/template file
-    //if (req.url.indexOf('/bundle') === 0) { bundle(); }
+      //Don't process requests for API endpoints
+      if (req.url.indexOf('/api') === 0 ) { return next(); }
+      console.log("[index] session id:", sid);
 
-    //Don't process requests for API endpoints
-    if (req.url.indexOf('/api') === 0 ) { return next(); }
-    console.log("[index] session id:", sid);
+      var init = "$(document).ready(function() { App.initialize(); });";
+      //if (typeof req.session.user !== 'undefined') {
+          init = "$(document).ready(function() { App.uid = '" + sid + "'; App.initialize(); });";
+      //}
+      fs.readFile(__dirname + '/../assets/templates/index.html', 'utf8', function(error, content) {
+          if (error) { console.log(error); }
+          content = content.replace("{{init}}", init);
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.write(content, 'utf-8');
+          res.end('\n');
+      });
+  };
 
-    var init = "$(document).ready(function() { App.initialize(); });";
-    //if (typeof req.session.user !== 'undefined') {
-        init = "$(document).ready(function() { App.uid = '" + sid + "'; App.initialize(); });";
-    //}
-    fs.readFile(__dirname + '/../assets/templates/index.html', 'utf8', function(error, content) {
-        if (error) { console.log(error); }
-        content = content.replace("{{init}}", init);
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(content, 'utf-8');
-        res.end('\n');
-    });
-};
+  //Return documents
+  exports.registrants = function(req, res) {
+      var category = req.query.category,
+          cat = [],
+          search = req.query.search,
+          page = req.query.page,
+          limit = req.query.per_page,
+          callback = function(registrants) {
+              //if (err) console.log(err);
+              res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+              res.writeHead(200, { 'Content-type': 'application/json' });
+              res.write(JSON.stringify(registrants), 'utf-8');
+              res.end('\n');
+          };
 
-//Return documents
-exports.registrants = function(req, res) {
-    var category = req.params.category,
-        cat = [],
-        search = req.params.search,
-        page = req.query.page,
-        limit = req.query.per_page,
-        callback = function(registrants) {
-            //if (err) console.log(err);
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, { 'Content-type': 'application/json' });
-            res.write(JSON.stringify(registrants), 'utf-8');
-            res.end('\n');
-        };
-
-    console.log("[registrants] session id:", req.session.id);
-    /**
-    if (typeof req.session.user_id === 'undefined') {
-        res.writeHead(401, { 'Content-type': 'text/html' });
-        res.end();
-        return;
-    }
-    **/
-    if (category == "name") {
-        cat = ["lastname", "firstname"];
-    } else if (category == "company") {
-        cat = ["company"];
-    } else if (category == "confirmation") {
-        cat = ["confirmation"];
-    } else if (category == "registrantid") {
-        if (search.indexOf("-") !== -1) {
-            search = search.split("-")[1];
-        }
-        cat = ["registrantid"];
-    }
-
-    registrants.searchAttendees(
-     cat,
-     search,
-     page,
-     limit,
-     null,
-     callback
-    );
-
-
-};
-
-exports.genBadge = function(req, res) {
-
-    var id = req.params.id,
-        action = req.params.action,
-        resource = res,
-        downloadCallback = function(pdf) {
-            //if (err) console.log(err);
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, {
-                'Content-Disposition': 'inline; filename="badge.'+id+'.pdf"',
-                'Content-type': 'application/pdf'
-            });
-            res.end(pdf, 'binary');
-        },
-        printCallback = function(pdf) {
-            console.log(printerUrl);
-            var printer = ipp.Printer(printerUrl.badge[nextBadgePrinter].url);
-            var msg = {
-                "operation-attributes-tag": {
-                    "requesting-user-name": "Station",
-                    "job-name": "Badge Print Job",
-                    "document-format": "application/pdf"
-                },
-                data: pdf
-            };
-
-            nextBadgePrinter = ((nextBadgePrinter+1) <= (printerUrl.badge.length-1)) ? nextBadgePrinter + 1 : 0;
-            printer.execute("Print-Job", msg, function(err, res){
-                if (err) console.log(err);
-                resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-                resource.writeHead(200, { 'Content-type': 'application/json' });
-                resource.write(JSON.stringify(res), 'utf-8');
-                resource.end('\n');
-                console.log(res);
-            });
-        },
-        registrantCallback = function(registrants) {
-          if (action == "print") {
-            createBadge(registrants[1][0], printCallback);
-          } else if (action == "download") {
-            createBadge(registrants[1][0], downloadCallback);
+      //console.log("[registrants] session id:", req.session.id);
+      /**
+      if (typeof req.session.user_id === 'undefined') {
+          res.writeHead(401, { 'Content-type': 'text/html' });
+          res.end();
+          return;
+      }
+      **/
+      if (category === "name") {
+          cat = ["lastname", "firstname"];
+      } else if (category === "company") {
+          cat = ["company"];
+      } else if (category === "confirmation") {
+          cat = ["confirmation"];
+      } else if (category === "registrantid") {
+          if (search.indexOf("-") !== -1) {
+              search = search.split("-")[1];
           }
-        };
+          cat = ["registrantid"];
+      } else {
+        cat = [category];
+      }
 
-    /**
-    if (typeof req.session.user_id === 'undefined') {
-        res.writeHead(401, { 'Content-type': 'text/html' });
-        res.end();
-        return;
-    }
-    **/
-    console.log("[genBadge] session id:", req.session.id);
-    console.log("Badge action:", action);
-    registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
+      registrants.searchAttendees(
+       cat,
+       search,
+       page,
+       limit,
+       null,
+       callback
+      );
 
 
-};
+  };
 
-exports.genReceipt = function(req, res) {
+  exports.genBadge = function(req, res) {
 
-    var id = req.params.id,
-        action = req.params.action,
-        resource = res,
-        receiptFileNameHtml = "",
-        receiptFileNamePdf = "",
-        downloadCallback = function(html) {
-            //if (err) console.log(err);
-            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            resource.writeHead(200, { 'Content-type': 'text/html' });
-            resource.write(html, 'utf-8');
+      var id = req.params.id,
+          action = req.params.action,
+          resource = res,
+          downloadCallback = function(pdf) {
+              var data = {id: id, pdf: pdf.toString('base64')};
+              resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+              resource.writeHead(200, { 'Content-type': 'application/json' });
+              resource.write(JSON.stringify(data), 'utf-8');
+              resource.end('\n');
+          },
+          printCallback = function(pdf) {
+              console.log(printerUrl);
+              var printer = ipp.Printer(printerUrl.badge[nextBadgePrinter].url);
+              var msg = {
+                  "operation-attributes-tag": {
+                      "requesting-user-name": "Station",
+                      "job-name": "Badge Print Job",
+                      "document-format": "application/pdf"
+                  },
+                  data: pdf
+              };
+
+              nextBadgePrinter = ((nextBadgePrinter+1) <= (printerUrl.badge.length-1)) ? nextBadgePrinter + 1 : 0;
+              printer.execute("Print-Job", msg, function(err, res){
+                  if (err) { console.log(err); }
+                  resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+                  resource.writeHead(200, { 'Content-type': 'application/json' });
+                  resource.write(JSON.stringify(res), 'utf-8');
+                  resource.end('\n');
+                  console.log(res);
+              });
+          },
+          registrantCallback = function(registrants) {
+            if (action === "print") {
+              createBadge(registrants[0], printCallback);
+            } else if (action === "download") {
+              createBadge(registrants[0], downloadCallback);
+            }
+          };
+
+      /**
+      if (typeof req.session.user_id === 'undefined') {
+          res.writeHead(401, { 'Content-type': 'text/html' });
+          res.end();
+          return;
+      }
+      **/
+      console.log("[genBadge] session id:", null);
+      console.log("Badge action:", action);
+      registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
+
+
+  };
+
+  exports.genReceipt = function(req, res) {
+
+      var id = req.params.id,
+          action = req.params.action,
+          resource = res,
+          receiptFileNameHtml = "",
+          receiptFileNamePdf = "",
+          downloadCallback = function(pdf) {
+            var data = {id: id, pdf: pdf};
+            resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+            resource.writeHead(200, { 'Content-type': 'application/json' });
+            resource.write(JSON.stringify(data), 'utf-8');
             resource.end('\n');
-        },
-        printCallback = function(pdf) {
-            console.log(printerUrl.receipt[0]);
-            console.log(pdf);
+          },
+          printCallback = function(pdf) {
+            var data = new Buffer(pdf, 'binary');
             var printer = ipp.Printer(printerUrl.receipt[0].url);
             var msg = {
                 "operation-attributes-tag": {
@@ -918,385 +978,599 @@ exports.genReceipt = function(req, res) {
                     "job-name": "Receipt Print Job",
                     "document-format": "application/pdf"
                 },
-                data: pdf
+                data: data
             };
             printer.execute("Print-Job", msg, function(err, res){
-                resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-                resource.writeHead(200, { 'Content-type': 'application/json' });
-                resource.write(JSON.stringify(res), 'utf-8');
-                resource.end('\n');
-                console.log(res);
+              resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+              resource.writeHead(200, { 'Content-type': 'application/json' });
+              resource.write(JSON.stringify(res), 'utf-8');
+              resource.end('\n');
+              console.log(res);
             });
-        },
-        registrantCallback = function(registrants) {
-          var pageBuilder = handlebars.compile(receipt),
-              html = pageBuilder(registrants[1][0]);
-          if (action == "view") {
-              downloadCallback(html);
-          } else {
-            var random = crypto.randomBytes(4).readUInt32LE(0);
-            receiptFileNamePdf = path.normalize(__dirname + '/../tmp/receipt.'+random+'.pdf');
-            var pdf = new NodePDF(
-              null,
-              receiptFileNamePdf,
-              {
-                'content': html,
-                'viewportSize': {
-                  width:670,
-                  height:1160
+          },
+          registrantCallback = function(registrants) {
+            var registrant = registrants[0],
+                doc = pdfjs.createDocument({
+                  font:  font.notosans.regular,
+                  width: 612,
+                  height: 792,
+                  padding:   20,
+                  threshold: 20
+                }),
+                run = function(cmd, options, data, callback) {
+                  var spawn = require('child_process').spawn,
+                      command = spawn(cmd, options),
+                      result = new Buffer(0);
+                  command.stdout.on('data', function(data) {
+                    result = new Buffer.concat([result, data]);
+                  });
+                  command.on('close', function(code) {
+                    return callback(result);
+                  });
+                  command.stdin.on('error', function(data) {
+                    console.log(data);
+                  });
+                  command.stdout.on('error', function(data) {
+                    console.log(data);
+                  });
+                  command.stdin.setEncoding = 'utf-8';
+                  command.stdin.write(data.toString());
+                  command.stdin.end();
                 },
-                'paperSize': {
-                  'format': 'Letter',
-                  'orientation': 'portrait'
-                }
+                text,
+                header = function () {
+                  var header = doc.header(),
+                      table, tr, td;
+                  table = header.table({ widths: ['50%', '50%']});
+                  tr = table.tr({borderBottomWidth: 4});
+                  tr.td('Invoice', { font: font.notosans.bold, fontSize: 20 });
+                  tr.td(registrant.biller.confirmNum, { font: font.notosans.bold, textAlign: 'right', fontSize: 20 });
+                },
+                payTo = function () {
+                  var table, tr, td1, td2;
+                  table = doc.table({ widths: ['60%', '40%']});
+                  tr = table.tr();
+                  td1 = tr.td();
+                  td1.text("Billed to:");
+                  td1.text(registrant.biller.firstname + " " + registrant.biller.lastname);
+                  td1.text(registrant.biller.baddress1);
+                  td1.text(registrant.biller.bcity + ", " + registrant.biller.bstate + " " + registrant.biller.bzip);
+
+                  td2 = tr.td();
+                  td2.text("Payment Method: ");
+                  if (registrant.creditCardTrans.length > 0) {
+                    td2.text("Type: " + registrant.creditCardTrans[0].cardType);
+                    td2.text("Card Number: " + registrant.creditCardTrans[0].cardNumber);
+                    td2.text("Transaction ID: "  + registrant.creditCardTrans[0].transId);
+                    td2.text("Date: " + moment.tz(registrant.creditCardTrans[0].submitTimeUTC, "America/Chicago").format("MMMM Do YYYY h:mm:ss a"));
+                  } else {
+                    td2.text("Check");
+                  }
+                },
+                lineItems = function () {
+                  var table, tr, td,
+                      price = registrant.payments[0].fee / (registrant.linked.length + 1),
+                      balance = parseInt(registrant.payments[0].fee,10) - parseInt(registrant.payments[0].paid_amount,10);
+                  table = doc.table({ headerRows: 1, widths: ['15%', '45%', '15%', '25%']});
+                  tr = table.tr({borderBottomWidth: 1});
+                  tr.td('Item', { font: font.notosans.bold, fontSize: 12 });
+                  tr.td('Description', { font: font.notosans.bold, fontSize: 12 });
+                  tr.td('Quantity', { font: font.notosans.bold, fontSize: 12 });
+                  tr.td('Price', { font: font.notosans.bold, fontSize: 12 });
+
+                  tr = table.tr();
+                  tr.td(registrant.event.reg_type+registrant.id.toString(), {});
+                  tr.td(registrant.lastname + ", " + registrant.firstname, {});
+                  tr.td('1', {});
+                  tr.td(price, {});
+                  registrant.linked.forEach(function(linked, index) {
+                    tr = table.tr();
+                    tr.td(registrant.event.reg_type+linked.id.toString(), {});
+                    tr.td(linked.lastname + ", " + linked.firstname, {});
+                    tr.td('1', {});
+                    tr.td(price, {});
+                  });
+                  tr = table.tr({borderTopWidth: 1});
+                  tr.td("", {});
+                  tr.td("", {});
+                  tr.td("TOTAL", { font: font.notosans.bold, fontSize: 12 });
+                  tr.td(registrant.payments[0].fee, {});
+
+                  tr = table.tr();
+                  tr.td("", {});
+                  tr.td("", {});
+                  tr.td("PAID", { font: font.notosans.bold, fontSize: 12 });
+                  tr.td(registrant.payments[0].paid_amount, {});
+
+                  tr = table.tr();
+                  tr.td("", {});
+                  tr.td("", {});
+                  tr.td("BALANCE", { font: font.notosans.bold, fontSize: 12 });
+                  tr.td(balance, {});
+                }, pdf;
+
+              header();
+              payTo();
+              text = doc.text();
+              text.br();
+              lineItems();
+              pdf = doc.render();
+              if (action === "download") {
+                var data = new Buffer(pdf.toString()).toString("base64");
+                downloadCallback(data);
+              } else {
+                run(
+                  "/usr/bin/pdftocairo",
+                  ["-pdf", "-", "-"],
+                  pdf,
+                  function(result) {
+                    printCallback(result);
+                  }
+                );
               }
-            );
-
-            pdf.on('error', function(msg){
-                console.log(msg);
-            });
-
-            pdf.on('done', function(pathToFile){
-                console.log(pathToFile);
-                fs.readFile(receiptFileNamePdf, function (err, data) {
-                    if (err) console.log(err);
-                    /**
-                    fs.unlink(pathToFile, function(err) {
-                        if (err) console.log(err);
-                    });
-                    fs.unlink(receiptFileNameHtml, function(err) {
-                        if (err) console.log(err);
-                    });
-                    **/
-                    printCallback(data);
-                });
-            });
-          }
-        };
-
-    /**
-    if (typeof req.session.user_id === 'undefined') {
-        res.writeHead(401, { 'Content-type': 'text/html' });
-        res.end();
-        return;
-    }
-    **/
-    console.log("[genBadge] session id:", req.session.id);
-    console.log("Badge action:", action);
-    registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
+              //fs.writeFile('test.receipt.pdf', pdf.toString(), 'binary');
 
 
-};
+          };
 
-exports.getRegistrant = function(req, res) {
-  var id = req.params.id,
-      callback = function(registrant) {
-        //if (err) console.log(err);
-        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-        res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify(registrant), 'utf-8');
-        res.end('\n');
-      };
-
-    console.log("[getRegistrant] session id:", req.session.id);
-    registrants.searchAttendees(["registrantid"], id, 0, 20, false, callback);
-};
-
-exports.updateRegistrantValues = function(req, res) {
-    var sid = req.session.id,
-        id = req.params.id,
-        values = req.body;
-
-    registrants.updateAttendeeValues(
-      id,
-      values,
-      function(registrant) {
-        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-        res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify(values), 'utf-8');
-        res.end('\n');
-        logAction(sid, "registrant", id, "updated", "Registrant updated");
+      /**
+      if (typeof req.session.user_id === 'undefined') {
+          res.writeHead(401, { 'Content-type': 'text/html' });
+          res.end();
+          return;
       }
-    );
-};
+      **/
+      //console.log("[genBadge] session id:", req.session.id);
+      console.log("Badge action:", action);
+      registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
 
-exports.updateRegistrant = function(req, res) {
 
+  };
+
+  exports.getRegistrant = function(req, res) {
     var id = req.params.id,
-        sid = req.session.id,
-        values = req.body,
-        sql = "UPDATE group_members SET ? WHERE id = "+id;
-
-    console.log("[updateRegistrant] session id:", req.session.id);
-    //console.log(values);
-    registrants.updateAttendee(id, values, function(registrant) {
-        //if (err) throw err;
-        console.log(values);
-        if ("fields" in values && "attend" in values.fields) {
-          if (values.attend) {
-              logAction(sid, "registrant", id, "attend", "Registrant checked in");
-              updateCheckedIn();
-          } else {
-              logAction(sid, "registrant", id, "attend", "Registrant checked out");
-              updateCheckedIn();
-          }
-        }
-        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-        res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify(registrant), 'utf-8');
-        res.end('\n');
-    });
-
-
-
-};
-
-exports.addRegistrant = function(req, res) {
-
-  var sid = req.session.id,
-      values = req.body,
-      retCallback = function(registrants) {
+        callback = function(registrant) {
           //if (err) console.log(err);
           res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
           res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(registrants[1][0]), 'utf-8');
+          res.write(JSON.stringify(registrant), 'utf-8');
           res.end('\n');
-      };
-
-  registrants.initRegistrant(values, retCallback);
-};
-
-exports.getEvents = function(req, res) {
-  var sid = req.session.id,
-      id = req.params.id;
-
-  console.log("[getEvents] session id:", req.session.id);
-  models.Events.findAll(
-    {
-      order: 'slabId ASC'
-    }
-  )
-  .success(function(events) {
-    var types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'],
-        fields = {},
-        fieldset = [],
-        getFields = function(event, callback) {
-          models.CheckinEventFields.findAll(
-            {
-              where: {
-                event_id: event.eventId,
-                showed: 3
-              },
-              order: 'ordering ASC'
-            }
-          ).success(function(evFields) {
-            fields = {};
-            fieldset = [];
-            async.each(evFields, makeFieldset, function(err) {
-              //console.log(fields);
-              event.fields = fields;
-              event.fieldset = fieldset;
-              callback(null, event);
-            });
-          });
-        },
-        makeFieldset = function(field, cb) {
-          var schemaRow = {
-              "title": field.label,
-              "type": types[field.type]
-          };
-          if (field.values) {
-              var values = field.values.split("|");
-              schemaRow.options = values;
-          }
-          fields[field.name] = schemaRow;
-          fieldset.push(field.name);
-          cb(null);
         };
 
-    async.map(events, getFields, function(err, results){
-      //console.log(results);
+      //console.log("[getRegistrant] session id:", req.session.id);
+      registrants.searchAttendees(["registrantid"], id, 0, 20, false, callback);
+  };
+
+  exports.updateRegistrantValues = function(req, res) {
+    var id = req.params.id,
+        registrantId = req.body.registrantId,
+        sid = null,
+        type = req.body.type,
+        values = req.body;
+
+    if (type === "status") {
+      registrants.updateAttendee(
+        registrantId,
+        values,
+        function(registrant) {
+          //if (err) throw err;
+          console.log(values.fields);
+          if ("fields" in values && "attend" in values.fields) {
+            if (values.attend) {
+              logAction(sid, "registrant", id, "attend", "Registrant checked in");
+              updateCheckedIn();
+            } else {
+              logAction(sid, "registrant", id, "attend", "Registrant checked out");
+              updateCheckedIn();
+            }
+          }
+          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+          res.writeHead(200, { 'Content-type': 'application/json' });
+          res.write(JSON.stringify(registrant), 'utf-8');
+          res.end('\n');
+        }
+      );
+    } else {
+      registrants.updateAttendeeValues(
+        registrantId,
+        values,
+        function(registrant) {
+          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+          res.writeHead(200, { 'Content-type': 'application/json' });
+          res.write(JSON.stringify(registrant), 'utf-8');
+          res.end('\n');
+          logAction(null, "registrant", id, "updated", "Registrant updated");
+        }
+      );
+    }
+  };
+
+  exports.updateRegistrant = function(req, res) {
+
+      var id = req.params.id,
+          sid = req.session.id,
+          values = req.body,
+          sql = "UPDATE group_members SET ? WHERE id = "+id;
+
+      console.log("[updateRegistrant] session id:", req.session.id);
+      //console.log(values);
+
+  };
+
+  exports.addRegistrant = function(req, res) {
+
+    var values = req.body,
+        retCallback = function(registrants) {
+            //if (err) console.log(err);
+            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+            res.writeHead(200, { 'Content-type': 'application/json' });
+            res.write(JSON.stringify(registrants), 'utf-8');
+            res.end('\n');
+        };
+
+    registrants.initRegistrant(values, retCallback);
+  };
+
+  exports.getExhibitorCompanies = function(req, res) {
+
+    var search = req.query.search,
+        retCallback = function(companies) {
+            //if (err) console.log(err);
+            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+            res.writeHead(200, { 'Content-type': 'application/json' });
+            res.write(JSON.stringify(companies), 'utf-8');
+            res.end('\n');
+        };
+
+    registrants.getExhibitorCompanies(search, retCallback);
+  };
+
+  exports.getFields = function(req, res) {
+    var type = req.params.type,
+        retCallback = function(fields) {
+            //if (err) console.log(err);
+            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+            res.writeHead(200, { 'Content-type': 'application/json' });
+            res.write(JSON.stringify(fields), 'utf-8');
+            res.end('\n');
+        };
+
+    registrants.getFields(type, retCallback);
+  };
+
+  exports.getOnsiteEvents = function(req, res) {
+    models.Events.findAll(
+      {
+        where: {
+          reg_type: ['E', 'Z']
+        },
+        order: 'slabId ASC'
+      }
+    )
+    .success(function(events) {
       res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
       res.writeHead(200, { 'Content-type': 'application/json' });
-      res.write(JSON.stringify(results), 'utf-8');
+      res.write(JSON.stringify(events), 'utf-8');
       res.end('\n');
     });
-  });
-};
+  };
 
-exports.getEventFields = function(req, res) {
-  var sid = req.session.id,
-      id = req.params.id;
+  exports.getEvents = function(req, res) {
+    models.Events.findAll(
+      {
+        order: 'slabId ASC'
+      }
+    )
+    .success(function(events) {
+      var types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'],
+          fields = {},
+          fieldset = [],
+          getFields = function(event, callback) {
+            models.CheckinEventFields.findAll(
+              {
+                where: {
+                  event_id: event.eventId,
+                  showed: 3
+                },
+                order: 'ordering ASC'
+              }
+            ).success(function(evFields) {
+              fields = {};
+              fieldset = [];
+              async.each(evFields, makeFieldset, function(err) {
+                //console.log(fields);
+                event.fields = fields;
+                event.fieldset = fieldset;
+                callback(null, event);
+              });
+            });
+          },
+          makeFieldset = function(field, cb) {
+            var schemaRow = {
+                "title": field.label,
+                "type": types[field.type]
+            };
+            if (field.values) {
+                var values = field.values.split("|");
+                schemaRow.options = values;
+            }
+            fields[field.name] = schemaRow;
+            fieldset.push(field.name);
+            cb(null);
+          };
 
-  console.log("[getEventField] session id:", req.session.id);
-  models.CheckinEventFields.findAll({
-    where: {
-      event_id: id
-    }
-  }).success(function(fields) {
-    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-    res.writeHead(200, { 'Content-type': 'application/json' });
-    res.write(JSON.stringify(fields), 'utf-8');
-    res.end('\n');
-  });
-};
-
-exports.makePayment = function(req, res) {
-    var values = req.body,
-        transAction = values.transaction,
-        payments = authnet.aim({
-            id: opts.configs.get("authorizenet:id"),
-            key: opts.configs.get("authorizenet:key"),
-            env: opts.configs.get("authorizenet:env")
-        }),
-        transactions = authnet.td(opts.configs.get("authorizenet")),
-        successCallback = function(result) {
-          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-          res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(result), 'utf-8');
-          res.end('\n');
-        };
-    if (values.type == "check") {
-      registrants.saveCheckTransaction(values, function(results) {
-        successCallback({ dbResult: results });
+      async.map(events, getFields, function(err, results){
+        //console.log(results);
+        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+        res.writeHead(200, { 'Content-type': 'application/json' });
+        res.write(JSON.stringify(results), 'utf-8');
+        res.end('\n');
       });
-    } else if (values.type != "check") {
-      payments.createTransaction(transAction, function (err, results){
-        console.log(results);
-        if (results.code == "I00001") {
-            var trans = {
-                    transId: results.transactionResponse.transId
-                };
-            transactions.getTransactionDetails(trans, function (err, result){
-                var transactionDetails = result;
-                registrants.saveCreditTransaction(values, function(results) {
+    });
+  };
+
+  exports.getEventFields = function(req, res) {
+    var sid = req.session.id,
+        id = req.params.id;
+
+    console.log("[getEventField] session id:", req.session.id);
+    models.CheckinEventFields.findAll({
+      where: {
+        event_id: id
+      }
+    }).success(function(fields) {
+      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+      res.writeHead(200, { 'Content-type': 'application/json' });
+      res.write(JSON.stringify(fields), 'utf-8');
+      res.end('\n');
+    });
+  };
+
+  exports.makePayment = function(req, res) {
+      var values = req.body,
+          transAction = values.transaction,
+          Request = new AuthorizeRequest({
+            api: opts.configs.get("authorizenet:id"),
+            key: opts.configs.get("authorizenet:key"),
+            rejectUnauthorized: false, // true
+            requestCert: false, // false
+            agent: false, // http.agent object
+            sandbox: opts.configs.get("authorizenet:sandbox")// true
+          }),
+          successCallback = function(result) {
+            res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+            res.writeHead(200, { 'Content-type': 'application/json' });
+            res.write(JSON.stringify(result), 'utf-8');
+            res.end('\n');
+          };
+      if (values.type === "check") {
+        registrants.saveCheckTransaction(values, function(results) {
+          successCallback({ dbResult: results });
+        });
+      } else if (values.type !== "check") {
+
+        var transaction = {
+          transactionRequest: {
+            transactionType: "authCaptureTransaction",
+            amount: values.transaction.amount,
+            payment: null,
+            order: {
+             invoiceNumber: values.registrant.confirmNum,
+             description: "Conference Registration"
+            },
+            customer: {
+             email: (values.registrant.email !== "") ? values.registrant.email : 'voss.matthew@gmail.com'
+            },
+            billTo: null
+          }
+        };
+        if (values.transaction.track !== null) {
+          transaction.transactionRequest.payment = {
+            trackData: {
+              track1: values.transaction.track
+            }
+          };
+          transaction.transactionRequest.billTo = {
+            firstName: values.transaction.firstName,
+            lastName: values.transaction.lastName
+          };
+          transaction.transactionRequest.retail = {
+            marketType: 2,
+            deviceType: 5
+          };
+        } else {
+          transaction.transactionRequest.payment = {
+             creditCard: {
+              cardNumber: values.transaction.cardNumber.replace(/\s+/g, ''),
+              expirationDate: values.transaction.expirationDate.replace(/\s+/g, ''),
+              cardCode: values.transaction.security.replace(/\s+/g, '')
+            }
+          };
+          transaction.transactionRequest.billTo = {
+            firstName: values.transaction.name.split(" ")[0],
+            lastName: values.transaction.name.split(" ")[1]
+          };
+
+        }
+
+        console.log(transaction, transaction.transactionRequest.payment);
+        async.waterfall(
+          [
+            function(callback) {
+              Request.send(
+                "createTransaction",
+                transaction,
+                function(err, results) {
+                  console.log(err, results);
+                  callback(null, results);
+                }
+              );
+            },
+            function(results, callback) {
+
+              var details = {
+                transId: results.transactionResponse.transId
+              };
+
+              Request.send(
+                "getTransactionDetails",
+                details,
+                function(err, transDetails) {
+                  console.log(err, transDetails);
+                  callback(null, transDetails);
+                }
+              );
+            },
+            function(details, callback) {
+              var trans = {
+                registrant: values.registrant,
+                transaction: details.transaction
+              };
+              registrants.saveCreditTransaction(
+                trans,
+                function(dbResults) {
                   registrants.saveAuthorizeNetTransaction(
-                    transactionDetails,
+                    trans,
                     function(results) {
-                      successCallback({
-                        dbResult: results.db,
-                        creditResult: results.credit
-                      });
+                      callback(
+                        null,
+                        results.db
+                      );
                     }
                   );
-                });
-            });
-        } else {
-          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-          res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(results), 'utf-8');
-          res.end('\n');
-        }
-      });
-    }
-
-};
-
-exports.getNumberCheckedIn = function(req, res) {
-  registrants.getCheckedInCount(function(count) {
-    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-    res.writeHead(200, { 'Content-type': 'application/json' });
-    res.write(JSON.stringify({"checkedIn": count}), 'utf-8');
-    res.end('\n');
-  });
-};
-
-var updateCheckedIn = function() {
-  registrants.getCheckedInCount(function(count) {
-    console.log("Update checked in");
-    logAction(0, "updates", count, "checkedIn", "Number checked in");
-  });
-};
-
-//Helpers
-var getConnection = function() {
-    // Test connection health before returning it to caller.
-    if ((connection) && (connection._socket) &&
-        (connection._socket.readable) &&
-        (connection._socket.writable)) {
-      return connection;
-    }
-    console.log(((connection) ?
-            "UNHEALTHY SQL CONNECTION; RE" : "") + "CONNECTING TO SQL.");
-    connection = mysql.createConnection(opts.configs.mysql);
-    connection.connect(function(err) {
-        if (err) {
-            console.log("(Retry: "+reconnectTries+") SQL CONNECT ERROR: " + err);
-            reconnectTries++;
-            var timeOut = ((reconnectTries * 50) < 30000) ? reconnectTries * 50 : 30000;
-            if (reconnectTries == 50) {
-                /**
-                var mailOptions = {
-                    from: "VPPPA Site ID Lookup <noreply@vpppa.org>", // sender address
-                    to: "problem@griffinandassocs.com", // list of receivers
-                    subject: "VPPPA Site ID Lookup DB Issue", // Subject line
-                    text: "The VPPPA Site ID Lookup is unable to connect to the mysql db server.", // plaintext body
-                    html: "<b>The VPPPA Site ID Lookup is unable to connect to the mysql db server.</b>" // html body
-                };
-
-                transport.sendMail(mailOptions, function(error, response){
-                    if(error){
-                        console.log(error);
-                    }else{
-                        console.log("Message sent: " + response.message);
-                    }
-
-                    // if you don't want to use this transport object anymore, uncomment following line
-                    //smtpTransport.close(); // shut down the connection pool, no more messages
-                });
-                **/
+                }
+              );
             }
-            setTimeout(getConnection, timeOut);
-        } else {
-            console.log("SQL CONNECT SUCCESSFUL.");
-            reconnectTries = 0;
-            handleDisconnect(connection);
-        }
+          ],
+          function(err, result) {
+            successCallback(result);
+          }
+        );
+      }
+
+  };
+
+  exports.getNumberCheckedIn = function(req, res) {
+    registrants.getCheckedInCount(function(count) {
+      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+      res.writeHead(200, { 'Content-type': 'application/json' });
+      res.write(JSON.stringify({"checkedIn": count}), 'utf-8');
+      res.end('\n');
     });
-    connection.on("close", function (err) {
-        console.log("SQL CONNECTION CLOSED.");
+  };
+
+  exports.downloadCheckedInAttendees = function(req, res) {
+
+    registrants.getAllCheckedInAttendees(
+      function(attendees) {
+        fs.readFile(__dirname + '/../assets/templates/attendees.csv', 'utf8', function(error, content) {
+          var pageBuilder = handlebars.compile(content),
+              html = pageBuilder({'attendees': attendees});
+
+          res.writeHead(200, { 'Content-Type': 'text/csv' });
+          res.write(html, 'utf-8');
+          res.end('\n');
+        });
+      }
+    );
+  };
+
+  var updateCheckedIn = function() {
+    registrants.getCheckedInCount(function(count) {
+      console.log("Update checked in");
+      logAction(0, "updates", count, "checkedIn", "Number checked in");
     });
-    connection.on("error", function (err) {
-        console.log("SQL CONNECTION ERROR: " + err);
+  };
+
+  //Helpers
+  var getConnection = function() {
+      // Test connection health before returning it to caller.
+      if ((connection) && (connection._socket) &&
+          (connection._socket.readable) &&
+          (connection._socket.writable)) {
+        return connection;
+      }
+      console.log(((connection) ?
+              "UNHEALTHY SQL CONNECTION; RE" : "") + "CONNECTING TO SQL.");
+      connection = mysql.createConnection(opts.configs.mysql);
+      connection.connect(function(err) {
+          if (err) {
+              console.log("(Retry: "+reconnectTries+") SQL CONNECT ERROR: " + err);
+              reconnectTries++;
+              var timeOut = ((reconnectTries * 50) < 30000) ? reconnectTries * 50 : 30000;
+              if (reconnectTries === 50) {
+                  /**
+                  var mailOptions = {
+                      from: "VPPPA Site ID Lookup <noreply@vpppa.org>", // sender address
+                      to: "problem@griffinandassocs.com", // list of receivers
+                      subject: "VPPPA Site ID Lookup DB Issue", // Subject line
+                      text: "The VPPPA Site ID Lookup is unable to connect to the mysql db server.", // plaintext body
+                      html: "<b>The VPPPA Site ID Lookup is unable to connect to the mysql db server.</b>" // html body
+                  };
+
+                  transport.sendMail(mailOptions, function(error, response){
+                      if(error){
+                          console.log(error);
+                      }else{
+                          console.log("Message sent: " + response.message);
+                      }
+
+                      // if you don't want to use this transport object anymore, uncomment following line
+                      //smtpTransport.close(); // shut down the connection pool, no more messages
+                  });
+                  **/
+              }
+              setTimeout(getConnection, timeOut);
+          } else {
+              console.log("SQL CONNECT SUCCESSFUL.");
+              reconnectTries = 0;
+              handleDisconnect(connection);
+          }
+      });
+      connection.on("close", function (err) {
+          console.log("SQL CONNECTION CLOSED.");
+      });
+      connection.on("error", function (err) {
+          console.log("SQL CONNECTION ERROR: " + err);
+      });
+      connection = connection;
+      return connection;
+  };
+
+
+  var handleDisconnect = function (connection) {
+    connection.on('error', function(err) {
+      if (!err.fatal) {
+        return;
+      }
+
+      if (err.code !== 'PROTOCOL_CONNECTION_LOST') {
+        throw err;
+      }
+
+      console.log('Re-connecting lost connection: ' + err.stack);
+
+      getConnection();
+
     });
-    connection = connection;
-    return connection;
-};
+  };
 
+  function logAction(uid, objType, objId, modType, desc) {
+      var logData = {
+              objectType: objType,
+              objectId: objId,
+              uid: uid,
+              modType: modType,
+              description: desc
+          };
 
-var handleDisconnect = function (connection) {
-  connection.on('error', function(err) {
-    if (!err.fatal) {
-      return;
-    }
+      opts.io.broadcast('talk', logData);
+  }
 
-    if (err.code !== 'PROTOCOL_CONNECTION_LOST') {
-      throw err;
-    }
-
-    console.log('Re-connecting lost connection: ' + err.stack);
-
-    getConnection();
-
-  });
-};
-
-function logAction(uid, objType, objId, modType, desc) {
-    var logData = {
-            objectType: objType,
-            objectId: objId,
-            uid: uid,
-            modType: modType,
-            description: desc
-        };
-
-    opts.io.broadcast('talk', logData);
-}
-
-function pad(num, size) {
-    var s = num+"";
-    while (s.length < size) s = "0" + s;
-    return s;
-}
+  function pad(num, size) {
+      var s = num+"";
+      while (s.length < size) { s = "0" + s; }
+      return s;
+  }
 
 }());

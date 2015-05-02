@@ -1,3 +1,5 @@
+/* global require */
+
 /*  ==============================================================
     Include required packages
 =============================================================== */
@@ -172,25 +174,25 @@ routes.initialize();
 =============================================================== */
 
 // API:Registrants
-app.get('/api/registrants/:category/:search', routes.registrants);
-app.get('/api/registrant/:id', routes.getRegistrant);
-app.put('/api/registrant/:id', routes.updateRegistrantValues);
-app.post('/api/registrant', routes.addRegistrant);
-app.patch('/api/registrant/:id', routes.updateRegistrant);
-//app.post('/json/document', routes.addDocument);
-//app.get('/json/document/:id', routes.getDocument);
-//app.put('/json/document/:id/version/:versionId', routes.updateDocument);
-//app.del('/json/document/:id', routes.deleteDocument);
+app.get('/api/registrants', routes.registrants);
+app.get('/api/registrants/:id', routes.getRegistrant);
+app.get('/api/download/checkedin', routes.downloadCheckedInAttendees);
+app.put('/api/registrants/:id', routes.updateRegistrantValues);
+app.post('/api/registrants', routes.addRegistrant);
+app.patch('/api/registrants/:id', routes.updateRegistrant);
+app.get('/api/fields/:type', routes.getFields);
+app.get('/api/exhibitors/companies', routes.getExhibitorCompanies);
 
 // Generate Badge
-app.get('/registrant/:id/badge/:action', routes.genBadge);
+app.get('/api/registrants/:id/badge/:action', routes.genBadge);
 
 // Generate Receipt
-app.get('/registrant/:id/receipt/:action', routes.genReceipt);
+app.get('/api/registrants/:id/receipt/:action', routes.genReceipt);
 
 //API:Events
 app.get('/api/events', routes.getEvents);
 app.get('/api/events/:id/fields', routes.getEventFields);
+app.get('/api/events/onsite', routes.getOnsiteEvents);
 
 app.post('/api/payment', routes.makePayment);
 app.get('/api/getNumberCheckedIn', routes.getNumberCheckedIn);

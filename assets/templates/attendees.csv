@@ -1,0 +1,3 @@
+Last Name$First Name$Title$Company$Street 1$Street 2$City$State/Province$Zip$Phone$Email$Management$Site ID$Confirmation$Register Date
+{{#eachIndex attendees}}{{item.lastname}}${{item.firstname}}${{item.title}}${{item.company}}${{item.street1}}${{item.street2}}${{item.city}}${{item.state}}${{item.zip}}${{item.phone}}$ {{item.email}}${{#if item.management}}{{item.management}}{{/if}}${{item.siteid}}${{item.confirmation}}${{item.biller.register_date}}
+{{/eachIndex}}

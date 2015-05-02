@@ -138,7 +138,8 @@ var RegistrantView = Backbone.View.extend({
         var view = this,
             errors = this.form.commit(); // runs schema validation
         this.model.save(null, {success: function(model, response) {
-            Messenger().post("Attendee ["+model.get("lastname")+", "+model.get("firstname")+"] has been updated.");
+            view.model.fetch();
+            Messenger().post("Attendee has been updated.");
             //view.render();
         }});
     },
@@ -153,6 +154,7 @@ var RegistrantView = Backbone.View.extend({
 
     printBadge: function(e) {
         $.getJSON("/registrant/"+this.model.id+"/badge/print", function(data) {
+            Messenger().post("Badge is printing.");
             console.log(data);
         });
     },
