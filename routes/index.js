@@ -904,7 +904,7 @@
           cat = ["confirmation"];
       } else if (category === "registrantid") {
           if (search.indexOf("-") !== -1) {
-              search = search.replace("-", "");
+              search = search.split("-")[1];
           }
           cat = ["registrantid"];
       } else {
