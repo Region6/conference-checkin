@@ -4,15 +4,21 @@
     Include required packages
 =============================================================== */
 
-var express = require('express.io'),
+ var session = require('express-session'),
+    cors = require('cors'),
+    crypto = require('crypto'),
+    bodyParser = require('body-parser'),
+    methodOverride = require('method-override'),
+    errorhandler = require('errorhandler'),
+    cookieParser = require('cookie-parser'),
+    favicon = require('serve-favicon'),
+    compression = require('compression'),
+    morgan = require('morgan'),
     fs = require('fs'),
-    path = require('path'),
     nconf = require('nconf'),
-    routes = require('./routes'),
-    ioEvents = require('./ioEvents'),
+    path = require('path'),
     redis = require("redis"),
-    redisClient = redis.createClient(),
-    redisStore = require('connect-redis')(express),
+    url = require('url'),
     opts = {},
     configFile, config;
 
@@ -69,137 +75,107 @@ if (config.get("ssl")) {
   console.log("Express will listen: https");
 }
 
+if (config.get("salt")) {
+  salt = config.get("salt");
+} else {
+  salt = crypto.randomBytes(16).toString('base64');
+}
 
 //Session Conf
 if (config.get("redis")) {
-    var redisConfig = config.get("redis");
-} else {
-    var redisConfig = {
-        "host": "localhost",
-        "port": "6379",
-        "ttl": 43200,
-        "db": "exhibitorAttendees"
+  redisConfig = config.get("redis");
+}
+
+var redisClient = redis.createClient(redisConfig.port, redisConfig.host),
+    RedisStore = require('connect-redis')(session),
+    allowCrossDomain = function(req, res, next) {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', '*');
+      res.header('Access-Control-Allow-Headers', '*');
+
+      // intercept OPTIONS method
+      if ('OPTIONS' === req.method) {
+        res.send(200);
+      }
+      else {
+        next();
+      }
     };
+opts.secret = salt;
+opts.store = new RedisStore(redisConfig);
+
+var app = module.exports = require("sockpress").init(opts),
+    router = app.express.Router(),
+    apiRouter = app.express.Router();
+
+// Express Configuration
+var oneDay = 86400000;
+
+app.use(compression());
+/**
+if ("log" in config) {
+  app.use(app.express.logger({stream: access_logfile }));
 }
+**/
+app.use(cookieParser());
+//app.use(favicon(path.join(__dirname, 'assets','images','favicon.ico')));
+app.use(app.express.static(__dirname + '/public'));     // set the static files location
+app.use('/css', app.express.static(__dirname + '/public/css'));
+app.use('/js', app.express.static(__dirname + '/public/js'));
+app.use('/images', app.express.static(__dirname + '/public/images'));
+app.use('/img', app.express.static(__dirname + '/public/images'));
+app.use('/fonts', app.express.static(__dirname + '/public/fonts'));
+app.use('/css/lib/fonts', app.express.static(__dirname + '/public/fonts'));
+app.use('/assets', app.express.static(__dirname + '/assets'));
+app.use('/lib', app.express.static(__dirname + '/lib'));
+app.use('/bower_components', app.express.static(__dirname + '/bower_components'));
+app.use(morgan('dev')); // log every request to the console
+app.use(bodyParser.urlencoded({'extended':'true'})); // parse application/x-www-form-urlencoded
+app.use(bodyParser.json()); // parse application/json
+app.use(bodyParser.json({ type: 'application/vnd.api+json' })); // parse application/vnd.api+json as json
+app.use(methodOverride('X-HTTP-Method-Override')); // override with the X-HTTP-Method-Override header in the request
+app.use(cors());
 
-if ("redis" in config) {
-    var redisConfig = config.redis;
-    redisConfig.client = redisClient;
-} else {
-    var redisConfig = {
-        "host": "localhost",
-        "port": "6379",
-        "ttl": 43200,
-        "db": "conference-checkin"
-    };
-    redisConfig.client = redisClient;
-}
-
-var app = module.exports = express(opts);
-
-var allowCrossDomain = function(req, res, next) {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', '*');
-    res.header('Access-Control-Allow-Headers', '*');
-
-    // intercept OPTIONS method
-    if ('OPTIONS' == req.method) {
-      res.send(200);
-    }
-    else {
-      next();
-    }
-};
-
-// Configuration
-var oneDay = 86400000,
-    cookieParser = express.cookieParser();
-app.configure(function(){
-  if ("log" in config) {
-      app.use(express.logger({stream: access_logfile }));
-  }
-  app.use(cookieParser);
-  app.use(express.session({
-      store: new redisStore(redisConfig),
-      secret: salt,
-      proxy: true
-  }));
-  app.use(express.json());
-  app.use(express.urlencoded());
-  app.use(express.methodOverride());
-  app.use(allowCrossDomain);
-  //app.use('/bootstrap', express.static(__dirname + '/public/bootstrap'));
-  app.use('/css', express.static(__dirname + '/public/css', { maxAge: oneDay }));
-  app.use('/js', express.static(__dirname + '/public/js', { maxAge: oneDay }));
-  app.use('/images', express.static(__dirname + '/public/images', { maxAge: oneDay }));
-  app.use('/img', express.static(__dirname + '/public/images', { maxAge: oneDay }));
-  app.use('/fonts', express.static(__dirname + '/public/fonts', { maxAge: oneDay }));
-  app.use('/assets', express.static(__dirname + '/assets', { maxAge: oneDay }));
-  app.use('/lib', express.static(__dirname + '/lib', { maxAge: oneDay }));
-  app.use('/bower_components', express.static(__dirname + '/bower_components', { maxAge: oneDay }));
-  app.use(app.router);
-  app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-});
-
-app.configure('development', function(){
-  app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-});
-
-app.configure('production', function(){
-  app.use(express.errorHandler());
-});
-
-//delete express.bodyParser.parse['multipart/form-data'];
-//app.use(express.favicon(__dirname + '/public/favicon.ico'));
-
-
-/*  ==============================================================
-    Serve the site skeleton HTML to start the app
-=============================================================== */
-
-var port = (config.get("port")) ? config.get("port") : 3001;
-if ("ssl" in config) {
-    var server = app.https(opts).io();
-} else {
-    var server = app.http().io();
-}
-
-var routes = require('./routes');
+var routes = require('./routes'),
+    ioEvents = require('./ioEvents');
 
 routes.setKey("configs", config);
 routes.initialize();
+ioEvents.initialize(config);
 
 /*  ==============================================================
     Routes
 =============================================================== */
 
+//Standard Routes
+router.get('/', routes.index);
+app.use('/', router);
+
 // API:Registrants
-app.get('/api/registrants', routes.registrants);
-app.get('/api/registrants/:id', routes.getRegistrant);
-app.get('/api/download/checkedin', routes.downloadCheckedInAttendees);
-app.put('/api/registrants/:id', routes.updateRegistrantValues);
-app.post('/api/registrants', routes.addRegistrant);
-app.patch('/api/registrants/:id', routes.updateRegistrant);
-app.get('/api/fields/:type', routes.getFields);
-app.get('/api/exhibitors/companies', routes.getExhibitorCompanies);
+apiRouter.get('/registrants', routes.registrants);
+apiRouter.get('/registrants/:id', routes.getRegistrant);
+apiRouter.get('/download/checkedin', routes.downloadCheckedInAttendees);
+apiRouter.put('/registrants/:id', routes.updateRegistrantValues);
+apiRouter.post('/registrants', routes.addRegistrant);
+apiRouter.patch('/registrants/:id', routes.updateRegistrant);
+apiRouter.get('/fields/:type', routes.getFields);
+apiRouter.get('/exhibitors/companies', routes.getExhibitorCompanies);
 
 // Generate Badge
-app.get('/api/registrants/:id/badge/:action', routes.genBadge);
+apiRouter.get('/registrants/:id/badge/:action', routes.genBadge);
 
 // Generate Receipt
-app.get('/api/registrants/:id/receipt/:action', routes.genReceipt);
+apiRouter.get('/registrants/:id/receipt/:action', routes.genReceipt);
 
 //API:Events
-app.get('/api/events', routes.getEvents);
-app.get('/api/events/:id/fields', routes.getEventFields);
-app.get('/api/events/onsite', routes.getOnsiteEvents);
+apiRouter.get('/events', routes.getEvents);
+apiRouter.get('/events/:id/fields', routes.getEventFields);
+apiRouter.get('/events/onsite', routes.getOnsiteEvents);
 
-app.post('/api/payment', routes.makePayment);
-app.get('/api/getNumberCheckedIn', routes.getNumberCheckedIn);
-// API:Timeline
-//app.get('/json/timeline', routes.getTimeline);
+apiRouter.post('/payment', routes.makePayment);
+apiRouter.get('/getNumberCheckedIn', routes.getNumberCheckedIn);
 
-app.get('*', routes.index);
+app.use('/api', apiRouter);
 
 /*  ==============================================================
     Socket.IO Routes
@@ -211,6 +187,5 @@ app.io.route('ready', ioEvents.connection);
 /*  ==============================================================
     Launch the server
 =============================================================== */
-
-server.listen(port);
-console.log("Express server listening on port %d", port);
+var port = (config.get("port")) ? config.get("port") : 3001;
+app.listen(port);

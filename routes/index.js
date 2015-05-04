@@ -448,6 +448,29 @@
       paidDate:             { type: Sequelize.DATE },
       siteId:               { type: Sequelize.STRING(255) }
     });
+    
+    models.OnsiteAttendees = db.checkin.define('onsiteAttendees', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      confirmation :        { type: Sequelize.STRING(255) },
+      eventId :             { type: Sequelize.STRING(36) },
+      firstname :           { type: Sequelize.STRING(255) },
+      lastname :            { type: Sequelize.STRING(255) },
+      address :             { type: Sequelize.STRING(255) },
+      address2 :            { type: Sequelize.STRING(255) },
+      city :                { type: Sequelize.STRING(255) },
+      state :               { type: Sequelize.STRING(255) },
+      zip :                 { type: Sequelize.STRING(15) },
+      email :               { type: Sequelize.STRING(255) },
+      phone :               { type: Sequelize.STRING(25) },
+      title :               { type: Sequelize.STRING(255) },
+      organization :        { type: Sequelize.STRING(255) },
+      created :             { type: Sequelize.DATE },
+      updated :             { type: Sequelize.DATE },
+      siteId :              { type: Sequelize.STRING(10) },
+      attend:               { type: Sequelize.BOOLEAN },
+      checked_in_time :     { type: Sequelize.DATE },
+      check :               { type: Sequelize.STRING(255) },
+    });
 
     models.Badges = db.checkin.define('event_badge', {
       id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
@@ -688,7 +711,8 @@
         function(template, cb){
          // console.log(template);
           pageBuilder = handlebars.compile(template);
-          var code = registrant.registrantId+"|"+registrant.confirmation;
+          var confirmation = (typeof registrant.confirmation !== "undefined") ? registrant.confirmation : registrant.confirmNum,
+              code = registrant.registrantId+"|"+confirmation;
           registrant.badgeFields.forEach(function(field, index) {
               code += "|" + registrant[field];
           });
@@ -950,7 +974,7 @@
       **/
       console.log("[genBadge] session id:", null);
       console.log("Badge action:", action);
-      registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
+      registrants.searchAttendees(["registrantid"], id, 0, 100, false, registrantCallback);
 
 
   };
@@ -1033,23 +1057,26 @@
                   td1 = tr.td();
                   td1.text("Billed to:");
                   td1.text(registrant.biller.firstname + " " + registrant.biller.lastname);
+                  td1.text(registrant.biller.bcompany);
                   td1.text(registrant.biller.baddress1);
                   td1.text(registrant.biller.bcity + ", " + registrant.biller.bstate + " " + registrant.biller.bzip);
 
                   td2 = tr.td();
                   td2.text("Payment Method: ");
                   if (registrant.creditCardTrans.length > 0) {
-                    td2.text("Type: " + registrant.creditCardTrans[0].cardType);
-                    td2.text("Card Number: " + registrant.creditCardTrans[0].cardNumber);
-                    td2.text("Transaction ID: "  + registrant.creditCardTrans[0].transId);
-                    td2.text("Date: " + moment.tz(registrant.creditCardTrans[0].submitTimeUTC, "America/Chicago").format("MMMM Do YYYY h:mm:ss a"));
+                    var lastIdx = registrant.creditCardTrans.length - 1;
+                    td2.text("Type: " + registrant.creditCardTrans[lastIdx].cardType);
+                    td2.text("Card Number: " + registrant.creditCardTrans[lastIdx].cardNumber);
+                    td2.text("Transaction ID: "  + registrant.creditCardTrans[lastIdx].transId);
+                    td2.text("Date: " + moment.tz(registrant.creditCardTrans[lastIdx].submitTimeUTC, "America/Chicago").format("MMMM Do YYYY h:mm:ss a"));
                   } else {
-                    td2.text("Check");
+                    var check = (registrant.badge_prefix === "Z") ? registrant.check : registrant.biller.transaction_id;
+                    td2.text("Check: "+ check);
                   }
                 },
                 lineItems = function () {
                   var table, tr, td,
-                      price = registrant.payments[0].fee / (registrant.linked.length + 1),
+                      price = (registrant.payments[0].fee / (registrant.linked.length + 1)).toFixed(2),
                       balance = parseInt(registrant.payments[0].fee,10) - parseInt(registrant.payments[0].paid_amount,10);
                   table = doc.table({ headerRows: 1, widths: ['15%', '45%', '15%', '25%']});
                   tr = table.tr({borderBottomWidth: 1});
@@ -1122,7 +1149,7 @@
       **/
       //console.log("[genBadge] session id:", req.session.id);
       console.log("Badge action:", action);
-      registrants.searchAttendees(["registrantid"], id, 0, 20, false, registrantCallback);
+      registrants.searchAttendees(["registrantid"], id, 0, 100, false, registrantCallback);
 
 
   };
@@ -1138,7 +1165,7 @@
         };
 
       //console.log("[getRegistrant] session id:", req.session.id);
-      registrants.searchAttendees(["registrantid"], id, 0, 20, false, callback);
+      registrants.searchAttendees(["registrantid"], id, 0, 100, false, callback);
   };
 
   exports.updateRegistrantValues = function(req, res) {
@@ -1344,9 +1371,12 @@
             res.end('\n');
           };
       if (values.type === "check") {
-        registrants.saveCheckTransaction(values, function(results) {
-          successCallback({ dbResult: results });
-        });
+        registrants.saveCheckTransaction(
+          values,
+          function(results) {
+            successCallback(results);
+          }
+        );
       } else if (values.type !== "check") {
 
         var transaction = {
@@ -1364,6 +1394,12 @@
             billTo: null
           }
         };
+
+        if (values.registrant.badge_prefix === "E") {
+          transaction.transactionRequest.order.invoiceNumber = values.registrant.biller.confirmNum;
+          transaction.transactionRequest.customer.email = values.registrant.biller.email;
+        }
+
         if (values.transaction.track !== null) {
           transaction.transactionRequest.payment = {
             trackData: {
@@ -1564,7 +1600,7 @@
               description: desc
           };
 
-      opts.io.broadcast('talk', logData);
+      opts.io.emit("talk", logData);
   }
 
   function pad(num, size) {
