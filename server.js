@@ -174,7 +174,14 @@ apiRouter.get('/events/onsite', routes.getOnsiteEvents);
 
 apiRouter.post('/payment', routes.makePayment);
 apiRouter.get('/getNumberCheckedIn', routes.getNumberCheckedIn);
+apiRouter.get('/company', routes.findCompany);
 apiRouter.get('/siteid', routes.findSiteId);
+apiRouter.get('/voter/:voterId', routes.authVoter);
+apiRouter.put('/voter/:voterId', routes.verifySiteId);
+apiRouter.put('/voter/voter-type/:voterId', routes.addVoterType);
+apiRouter.delete('/voter/:voterId', routes.logoutVoter);
+apiRouter.put('/castVote/:id', routes.castVotes);
+apiRouter.get('/offices', routes.offices);
 
 app.use('/api', apiRouter);
 

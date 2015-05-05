@@ -1525,10 +1525,179 @@
   exports.findSiteId = function(req, res) {
     var query = req.query.search;
      models.Sites
+    .findAll({ where: ["siteId LIKE ?", "%"+query+"%"] })
+    .success(function(siteids) {
+      sendBack(res, siteids, 200);
+    });
+  };
+  
+  exports.findCompany = function(req, res) {
+    var query = req.query.search;
+     models.Sites
     .findAll({ where: ["company LIKE ?", "%"+query+"%"] })
     .success(function(siteids) {
       sendBack(res, siteids, 200);
     });
+  };
+  
+    //Auth a user
+  exports.authVoter = function(req, res) {
+    var request = req,
+        registrantId = req.params.voterId,
+        regType = registrantId.slice(0,1),
+        regId = parseInt(registrantId.slice(1), 10),
+        errorMsg = {
+          status: "error",
+          message: {
+            response: null
+          }
+        };
+    models.Votes.find({ where: {registrantid: registrantId} }).success(function(vote) {
+      if (vote === null) {
+        registrants.getAttendee(
+          registrantId, 
+          function(member) {
+            if ("id" in member) {
+              //console.log("member", member);
+              member.siteId = ("siteid" in member) ? member.siteid : member.siteId;
+              if (member.siteId !== "") {
+                getSiteInfo(
+                  member.siteId, 
+                  function(site) {
+                    member.voterType = null;
+                    member.votes = [];
+                    site = (site) ? site.toJSON() : {};
+                    member.site = site;
+                    member.registrantId = registrantId;
+                    sendBack(res, member, 200);
+                  }
+                );
+              } else {
+                member.voterType = null;
+                member.votes = [];
+                member.registrantId = registrantId;
+                member.site = {};
+                sendBack(res, member, 200);
+              }
+            } else {
+              errorMsg.message.response = "No record of that registrant id exists.";
+              sendBack(res, errorMsg, 401);
+            }
+          }
+        );
+      } else {
+        errorMsg.message.response = "You have already voted.";
+        sendBack(res, errorMsg, 401);
+      }
+    });
+  };
+
+  //Log out the current user
+  exports.logoutVoter = function(req, res) {
+   req.session.destroy(function () {
+      res.clearCookie('connect.sid', { path: '/' });
+      sendBack(res, {logout: true}, 200);
+    });
+  };
+
+  exports.verifySiteId = function(req, res) {
+    var member = req.body;
+     async.waterfall([
+      function(callback){
+        getSiteInfo(
+          member.siteId, 
+          function(site) {
+            site = site.toJSON();
+            callback(null, site);
+          }
+        );
+      },
+      function(site, callback){
+        getSiteVoters(
+          site.siteId, 
+          function(voters) {
+            site.voters = voters;
+            callback(null, site);
+          }
+        );
+      }
+    ],function(err, site) {
+      member.site = site;
+      member.siteId = site.siteId;
+      sendBack(res, member, 200);
+    });
+  };
+
+  exports.addVoterType = function(req, res) {
+    var member = req.body;
+    req.session.voter.voterType = member.voterType;
+    req.session.voter.votes = member.votes;
+    member = req.session.voter;
+    sendBack(res, member, 200);
+  };
+
+  exports.castVotes = function(req, res) {
+    var user = req.body,
+        uid = uuid.v4(),
+        errorMsg = {
+          status: "error",
+          message: {
+            response: null
+          }
+        },
+        recordVote = function(office, cb) {
+          var vote = office.vote;
+          vote.datecast = new Date();
+          vote.uuid = uid;
+          vote.registrantid = user.registrantId;
+          vote.siteid = user.siteId;
+          vote.votertype = user.voterType;
+          vote.candidateid = vote.id;
+          models.Votes
+            .create(
+              vote, 
+              [
+                "uuid", 
+                "siteid", 
+                "electionid", 
+                "registrantid", 
+                "candidateid", 
+                "votertype", 
+                "datecast"
+              ]
+            )
+            .success(
+              function(results) {
+                cb(null, results);
+              }
+            );
+        };
+    models.Votes.find({ where: {registrantid: user.registrantId} }).success(function(vote) {
+      if (vote === null) {
+        async.map(
+          user.votes, 
+          recordVote, 
+          function(err, items) {
+            var message = {
+                  "status": "votes cast"
+                };
+            //redisClient.publish("voteCast", JSON.stringify(message));
+            sendBack(res, items, 200);
+          }
+        );
+      } else {
+        errorMsg.message.response = "You have already voted.";
+        sendBack(res, errorMsg, 401);
+      }
+    });
+  };
+
+  exports.offices = function(req, res) {
+    models.ElectionOffices
+      .findAll({ include: [{model:models.ElectionOfficeCandidates, as:"Candidates"}] })
+      .success(function(offices) {
+        sendBack(res, offices, 200);
+      });
   };
 
   var updateCheckedIn = function() {
@@ -1542,6 +1711,51 @@
      models.Sites.find({ where: { siteId: siteId } }).success(function(site) {
       cb(site);
     });
+  };
+  
+  var getSiteVoters = function(siteId, cb) {
+
+    async.waterfall([
+      function(callback){
+        models.Votes
+        .findAll(
+          {
+            where: { siteid: siteId },
+            group: 'registrantid'
+          }
+        )
+        .success(function(votes) {
+          callback(null, votes);
+        });
+      },
+      function(votes, callback){
+        async.map(
+          votes,
+          function(vote, mapCb) {
+            var registrantId = vote.registrantid,
+                regType = registrantId.slice(0,1),
+                regId = parseInt(registrantId.slice(1), 10);
+
+            registrants.getAttendee(registrantId, function(member) {
+                member.voterType = vote.votertype;
+                member.dateCast = vote.datecast;
+                mapCb(null, member);
+            });
+          }, function(err, voters){
+            if( err ) {
+              callback(err, null);
+            } else {
+              callback(null, voters);
+            }
+          }
+        );
+      },
+    ],function(err, voters) {
+      if (err) console.log("error:", err);
+      cb(voters);
+    });
+
+
   };
   
   var sendBack = function(res, data, status) {
