@@ -477,7 +477,18 @@
       eventId :               { type: Sequelize.STRING(36) },
       template :              { type: Sequelize.TEXT }
     });
-
+    
+    models.Sites = db.checkin.define('siteIds', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      company:              { type: Sequelize.STRING(255) },
+      street1:              { type: Sequelize.STRING(255) },
+      street2:              { type: Sequelize.STRING(255) },
+      city:                 { type: Sequelize.STRING(255) },
+      state:                { type: Sequelize.STRING(255) },
+      zipCode:              { type: Sequelize.STRING(255) },
+      siteId:               { type: Sequelize.STRING(255) }
+    });
+    
     getPrinter(function() {
       console.log("got printers");
     });
@@ -1510,12 +1521,35 @@
       }
     );
   };
+  
+  exports.findSiteId = function(req, res) {
+    var query = req.query.search;
+     models.Sites
+    .findAll({ where: ["company LIKE ?", "%"+query+"%"] })
+    .success(function(siteids) {
+      sendBack(res, siteids, 200);
+    });
+  };
 
   var updateCheckedIn = function() {
     registrants.getCheckedInCount(function(count) {
       console.log("Update checked in");
       logAction(0, "updates", count, "checkedIn", "Number checked in");
     });
+  };
+  
+  var getSiteInfo = function(siteId, cb) {
+     models.Sites.find({ where: { siteId: siteId } }).success(function(site) {
+      cb(site);
+    });
+  };
+  
+  var sendBack = function(res, data, status) {
+    status = status || 200;
+    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+    res.writeHead(status, { 'Content-type': 'application/json' });
+    res.write(JSON.stringify(data), 'utf-8');
+    res.end('\n');
   };
 
   //Helpers

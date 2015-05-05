@@ -174,6 +174,7 @@ apiRouter.get('/events/onsite', routes.getOnsiteEvents);
 
 apiRouter.post('/payment', routes.makePayment);
 apiRouter.get('/getNumberCheckedIn', routes.getNumberCheckedIn);
+apiRouter.get('/siteid', routes.findSiteId);
 
 app.use('/api', apiRouter);
 
