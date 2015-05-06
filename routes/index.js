@@ -1740,11 +1740,33 @@
   };
   
   var updateVoteTotals = function() {
-    models.Votes.findAll().success(
-      function(votes) {
-        logAction(0, "updates", votes, "votes", "Vote total");
+    async.waterfall([
+      function(callback){
+        models.ElectionOffices
+        .findAll({ include: [{model:models.ElectionOfficeCandidates, as:"Candidates"}] })
+        .success(function(offices) {
+          var result = {
+            offices: offices
+          };
+          callback(null, result); 
+        });
+      },
+      function(result, callback){
+        models.Votes.findAll({
+          attributes: ['candidateid', [Sequelize.fn('count', Sequelize.col('candidateid')), 'count']],
+          group: ['candidateid']
+        }).success(
+          function(votes) {
+            result.votes = votes;
+            callback(null, result);
+          }
+        );
       }
-    );
+    ],function(err, result) {
+      logAction(0, "updates", result, "votes", "Vote total");
+    });
+    
+    
   };
   
   var getSiteVoters = function(siteId, cb) {
