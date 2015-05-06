@@ -1742,7 +1742,7 @@
   var updateVoteTotals = function() {
     Votes.findAll().success(
       function(votes) {
-        logAction(0, "votes", votes, "checkedIn", "Number checked in");
+        logAction(0, "updates", votes, "votes", "Vote total");
       }
     );
   };
