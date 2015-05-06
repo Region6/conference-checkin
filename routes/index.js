@@ -1581,7 +1581,7 @@
               //console.log("member", member);
               member.siteId = ("siteid" in member) ? member.siteid : member.siteId;
               if (member.siteId !== "") {
-                geVotingSiteInfo(
+                getVotingSiteInfo(
                   member.siteId, 
                   function(site) {
                     member.voterType = null;
@@ -1701,7 +1701,7 @@
             var message = {
                   "status": "votes cast"
                 };
-            //redisClient.publish("voteCast", JSON.stringify(message));
+            updateVoteTotals();
             sendBack(res, items, 200);
           }
         );
@@ -1737,6 +1737,14 @@
      models.VotingSites.find({ where: { siteId: siteId } }).success(function(site) {
       cb(site);
     });
+  };
+  
+  var updateVoteTotals = function() {
+    Votes.findAll().success(
+      function(votes) {
+        logAction(0, "votes", votes, "checkedIn", "Number checked in");
+      }
+    );
   };
   
   var getSiteVoters = function(siteId, cb) {
