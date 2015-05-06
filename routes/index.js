@@ -1740,7 +1740,7 @@
   };
   
   var updateVoteTotals = function() {
-    Votes.findAll().success(
+    models.Votes.findAll().success(
       function(votes) {
         logAction(0, "updates", votes, "votes", "Vote total");
       }
