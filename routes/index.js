@@ -489,6 +489,17 @@
       siteId:               { type: Sequelize.STRING(255) }
     });
     
+     models.VotingSites = db.checkin.define('votingSiteIds', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      company:              { type: Sequelize.STRING(255) },
+      street1:              { type: Sequelize.STRING(255) },
+      street2:              { type: Sequelize.STRING(255) },
+      city:                 { type: Sequelize.STRING(255) },
+      state:                { type: Sequelize.STRING(255) },
+      zipCode:              { type: Sequelize.STRING(255) },
+      siteId:               { type: Sequelize.STRING(255) }
+    });
+    
     getPrinter(function() {
       console.log("got printers");
     });
@@ -1531,6 +1542,15 @@
     });
   };
   
+  exports.findVotingSiteId = function(req, res) {
+    var query = req.query.search;
+     models.VotingSites
+    .findAll({ where: ["siteId LIKE ?", "%"+query+"%"] })
+    .success(function(siteids) {
+      sendBack(res, siteids, 200);
+    });
+  };
+  
   exports.findCompany = function(req, res) {
     var query = req.query.search;
      models.Sites
@@ -1561,7 +1581,7 @@
               //console.log("member", member);
               member.siteId = ("siteid" in member) ? member.siteid : member.siteId;
               if (member.siteId !== "") {
-                getSiteInfo(
+                geVotingSiteInfo(
                   member.siteId, 
                   function(site) {
                     member.voterType = null;
@@ -1604,7 +1624,7 @@
     var member = req.body;
      async.waterfall([
       function(callback){
-        getSiteInfo(
+        getVotingSiteInfo(
           member.siteId, 
           function(site) {
             site = site.toJSON();
@@ -1709,6 +1729,12 @@
   
   var getSiteInfo = function(siteId, cb) {
      models.Sites.find({ where: { siteId: siteId } }).success(function(site) {
+      cb(site);
+    });
+  };
+  
+  var getVotingSiteInfo = function(siteId, cb) {
+     models.VotingSites.find({ where: { siteId: siteId } }).success(function(site) {
       cb(site);
     });
   };
