@@ -7,3 +7,5 @@ public/js/vendor.js
 /reg.dor.key
 /reg.dor.tamu.edu.crt
 tmp/
+badge*.svg
+badge*.pdf

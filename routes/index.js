@@ -12,11 +12,12 @@
       Acl = require('acl'),
       uuid = require("node-uuid"),
       glob = require('glob'),
-      underscore = require('underscore'),
+      underscore = require('lodash'),
       pdf417 = require('pdf417'),
       ipp = require('ipp'),
       handlebars = require('handlebars'),
       moment = require('moment-timezone'),
+      json2csv = require('json2csv'),
       AuthorizeRequest = require('auth-net-request'),
       request = require('request'),
       parser = require('xml2json'),
@@ -37,14 +38,15 @@
       receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8"),
       qr              = require('qr-image'),
       hummus          = require('hummus'),
-      Rsvg            = require('rsvg').Rsvg,
+      Rsvg            = require('librsvg').Rsvg,
       Registrants = require("node-registrants"),
       registrants,
       nextBadgePrinter = 0,
       opts = {},
       printerUrl = {
         "receipt": [],
-        "badge": []
+        "ebadge": [],
+        "gbadge": []
       },
       connection = null,
       client = null,
@@ -64,12 +66,17 @@
             order: 'type ASC'
           }
         )
-        .success(function(printers) {
-          async.each(printers, addPrinter, function(err){
-            //console.log(err);
-            callback();
-          });
-        });
+        .then(
+          function(printers) {
+            async.each(printers, addPrinter, function(err){
+              //console.log(err);
+              callback();
+            });
+          },
+          function(err) {
+            
+          }
+        );
       };
 
   Swag.registerHelpers(handlebars);
@@ -402,7 +409,7 @@
       id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       conferenceid :          { type: Sequelize.INTEGER(11) },
       name :                  { type: Sequelize.TEXT },
-      type :                  { type: Sequelize.ENUM('receipt', 'badge', 'other'), default: 'receipt'  },
+      type :                  { type: Sequelize.ENUM('receipt', 'ebadge', 'gbadge', 'other'), default: 'receipt'  },
       host :                  { type: Sequelize.TEXT },
       uri :                   { type: Sequelize.TEXT }
     });
@@ -449,29 +456,6 @@
       siteId:               { type: Sequelize.STRING(255) }
     });
     
-    models.OnsiteAttendees = db.checkin.define('onsiteAttendees', {
-      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-      confirmation :        { type: Sequelize.STRING(255) },
-      eventId :             { type: Sequelize.STRING(36) },
-      firstname :           { type: Sequelize.STRING(255) },
-      lastname :            { type: Sequelize.STRING(255) },
-      address :             { type: Sequelize.STRING(255) },
-      address2 :            { type: Sequelize.STRING(255) },
-      city :                { type: Sequelize.STRING(255) },
-      state :               { type: Sequelize.STRING(255) },
-      zip :                 { type: Sequelize.STRING(15) },
-      email :               { type: Sequelize.STRING(255) },
-      phone :               { type: Sequelize.STRING(25) },
-      title :               { type: Sequelize.STRING(255) },
-      organization :        { type: Sequelize.STRING(255) },
-      created :             { type: Sequelize.DATE },
-      updated :             { type: Sequelize.DATE },
-      siteId :              { type: Sequelize.STRING(10) },
-      attend:               { type: Sequelize.BOOLEAN },
-      checked_in_time :     { type: Sequelize.DATE },
-      check :               { type: Sequelize.STRING(255) },
-    });
-
     models.Badges = db.checkin.define('event_badge', {
       id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       eventId :               { type: Sequelize.STRING(36) },
@@ -696,7 +680,7 @@
               if (extra) {
                   console.log("credit card");
                   console.log(results[8]);
-                  reg.creditCardTrans = results[8];
+                  reg.transactions = results[8];
               }
               //console.log(reg);
               registrants[1].push(reg);
@@ -726,9 +710,11 @@
               eventId: registrant.event_id
             }
           })
-          .success(function(badge) {
-            cb(null, badge.template.toString());
-          });
+          .then(
+            function(badge) {
+              cb(null, badge.template.toString());
+            }
+          );
         },
         function(template, cb){
          // console.log(template);
@@ -772,10 +758,12 @@
                 registrant.paddedRegId = registrant.registrantId;
                 var svg = pageBuilder(registrant);
                 svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
+             
                 fs.writeFile('badge.'+registrant.registrantId+".svg", svg, function (err) {
                   if (err) throw err;
                   console.log('It\'s saved!');
                 });
+             
                 var svgPdf = new Rsvg(svg);
                 svgPdf.on('load', function() {
                   var data = svgPdf.render({
@@ -825,7 +813,7 @@
           */
         }
     ], function (err, pdf) {
-      callback(pdf);
+      callback(registrant.event.reg_type, pdf);
     });
   };
 
@@ -926,7 +914,7 @@
           cat = ["confirmation"];
       } else if (category === "registrantid") {
           if (search.indexOf("-") !== -1) {
-              search = search.split("-")[1];
+              search = search.replace("-", "");
           }
           cat = ["registrantid"];
       } else {
@@ -950,26 +938,26 @@
       var id = req.params.id,
           action = req.params.action,
           resource = res,
-          downloadCallback = function(pdf) {
+          downloadCallback = function(type, pdf) {
               var data = {id: id, pdf: pdf.toString('base64')};
               resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
               resource.writeHead(200, { 'Content-type': 'application/json' });
               resource.write(JSON.stringify(data), 'utf-8');
               resource.end('\n');
           },
-          printCallback = function(pdf) {
-              console.log(printerUrl);
-              var printer = ipp.Printer(printerUrl.badge[nextBadgePrinter].url);
-              var msg = {
-                  "operation-attributes-tag": {
+          printCallback = function(type, pdf) {
+              var badgeType = (type === "E") ? "ebadge" : "gbadge", 
+                  printer = ipp.Printer(printerUrl[badgeType][0].url),
+                  msg = {
+                    "operation-attributes-tag": {
                       "requesting-user-name": "Station",
                       "job-name": "Badge Print Job",
                       "document-format": "application/pdf"
-                  },
-                  data: pdf
-              };
+                    },
+                    data: pdf
+                  };
 
-              nextBadgePrinter = ((nextBadgePrinter+1) <= (printerUrl.badge.length-1)) ? nextBadgePrinter + 1 : 0;
+              //nextBadgePrinter = ((nextBadgePrinter+1) <= (printerUrl.badge.length-1)) ? nextBadgePrinter + 1 : 0;
               printer.execute("Print-Job", msg, function(err, res){
                   if (err) { console.log(err); }
                   resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
@@ -1079,18 +1067,18 @@
                   td1 = tr.td();
                   td1.text("Billed to:");
                   td1.text(registrant.biller.firstname + " " + registrant.biller.lastname);
-                  td1.text(registrant.biller.bcompany);
-                  td1.text(registrant.biller.baddress1);
-                  td1.text(registrant.biller.bcity + ", " + registrant.biller.bstate + " " + registrant.biller.bzip);
+                  td1.text(registrant.biller.company);
+                  td1.text(registrant.biller.address);
+                  td1.text(registrant.biller.city + ", " + registrant.biller.state + " " + registrant.biller.zip);
 
                   td2 = tr.td();
                   td2.text("Payment Method: ");
-                  if (registrant.creditCardTrans.length > 0) {
-                    var lastIdx = registrant.creditCardTrans.length - 1;
-                    td2.text("Type: " + registrant.creditCardTrans[lastIdx].cardType);
-                    td2.text("Card Number: " + registrant.creditCardTrans[lastIdx].cardNumber);
-                    td2.text("Transaction ID: "  + registrant.creditCardTrans[lastIdx].transId);
-                    td2.text("Date: " + moment.tz(registrant.creditCardTrans[lastIdx].submitTimeUTC, "America/Chicago").format("MMMM Do YYYY h:mm:ss a"));
+                  if (registrant.transactions.length > 0) {
+                    var lastIdx = registrant.transactions.length - 1;
+                    td2.text("Type: " + registrant.transactions[lastIdx].cardType);
+                    td2.text("Card Number: " + registrant.transactions[lastIdx].cardNumber);
+                    td2.text("Transaction ID: "  + registrant.transactions[lastIdx].transId);
+                    td2.text("Date: " + moment.tz(registrant.transactions[lastIdx].submitTimeUTC, "America/Chicago").format("MMMM Do YYYY h:mm:ss a"));
                   } else {
                     var check = (registrant.badge_prefix === "Z") ? registrant.check : registrant.biller.transaction_id;
                     td2.text("Check: "+ check);
@@ -1098,8 +1086,10 @@
                 },
                 lineItems = function () {
                   var table, tr, td,
-                      price = (registrant.payments[0].fee / (registrant.linked.length + 1)).toFixed(2),
-                      balance = parseInt(registrant.payments[0].fee,10) - parseInt(registrant.payments[0].paid_amount,10);
+                      numLinked = (registrant.linked) ? registrant.linked.length : 0,
+                      sum = underscore.sumBy(registrant.transactions, "settleAmount"),
+                      price = (sum / (numLinked + 1)).toFixed(2),
+                      balance = 0;
                   table = doc.table({ headerRows: 1, widths: ['15%', '45%', '15%', '25%']});
                   tr = table.tr({borderBottomWidth: 1});
                   tr.td('Item', { font: font.notosans.bold, fontSize: 12 });
@@ -1112,24 +1102,26 @@
                   tr.td(registrant.lastname + ", " + registrant.firstname, {});
                   tr.td('1', {});
                   tr.td(price, {});
-                  registrant.linked.forEach(function(linked, index) {
-                    tr = table.tr();
-                    tr.td(registrant.event.reg_type+linked.id.toString(), {});
-                    tr.td(linked.lastname + ", " + linked.firstname, {});
-                    tr.td('1', {});
-                    tr.td(price, {});
-                  });
+                  if (registrant.linked) {
+                    registrant.linked.forEach(function(linked, index) {
+                      tr = table.tr();
+                      tr.td(registrant.event.reg_type+linked.id.toString(), {});
+                      tr.td(linked.lastname + ", " + linked.firstname, {});
+                      tr.td('1', {});
+                      tr.td(price, {});
+                    });
+                  }
                   tr = table.tr({borderTopWidth: 1});
                   tr.td("", {});
                   tr.td("", {});
                   tr.td("TOTAL", { font: font.notosans.bold, fontSize: 12 });
-                  tr.td(registrant.payments[0].fee, {});
+                  tr.td(sum, {});
 
                   tr = table.tr();
                   tr.td("", {});
                   tr.td("", {});
                   tr.td("PAID", { font: font.notosans.bold, fontSize: 12 });
-                  tr.td(registrant.payments[0].paid_amount, {});
+                  tr.td(sum, {});
 
                   tr = table.tr();
                   tr.td("", {});
@@ -1290,18 +1282,17 @@
   exports.getOnsiteEvents = function(req, res) {
     models.Events.findAll(
       {
-        where: {
-          reg_type: ['E', 'Z']
-        },
         order: 'slabId ASC'
       }
     )
-    .success(function(events) {
-      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-      res.writeHead(200, { 'Content-type': 'application/json' });
-      res.write(JSON.stringify(events), 'utf-8');
-      res.end('\n');
-    });
+    .then(
+      function(events) {
+        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+        res.writeHead(200, { 'Content-type': 'application/json' });
+        res.write(JSON.stringify(events), 'utf-8');
+        res.end('\n');
+      }
+    );
   };
 
   exports.getEvents = function(req, res) {
@@ -1310,52 +1301,56 @@
         order: 'slabId ASC'
       }
     )
-    .success(function(events) {
-      var types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'],
-          fields = {},
-          fieldset = [],
-          getFields = function(event, callback) {
-            models.CheckinEventFields.findAll(
-              {
-                where: {
-                  event_id: event.eventId,
-                  showed: 3
-                },
-                order: 'ordering ASC'
+    .then(
+      function(events) {
+        var types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'],
+            fields = {},
+            fieldset = [],
+            getFields = function(event, callback) {
+              models.CheckinEventFields.findAll(
+                {
+                  where: {
+                    event_id: event.eventId,
+                    showed: 3
+                  },
+                  order: 'ordering ASC'
+                }
+              ).then(
+                function(evFields) {
+                  fields = {};
+                  fieldset = [];
+                  async.each(evFields, makeFieldset, function(err) {
+                    //console.log(fields);
+                    event.fields = fields;
+                    event.fieldset = fieldset;
+                    callback(null, event);
+                  });
+                }
+              );
+            },
+            makeFieldset = function(field, cb) {
+              var schemaRow = {
+                  "title": field.label,
+                  "type": types[field.type]
+              };
+              if (field.values) {
+                  var values = field.values.split("|");
+                  schemaRow.options = values;
               }
-            ).success(function(evFields) {
-              fields = {};
-              fieldset = [];
-              async.each(evFields, makeFieldset, function(err) {
-                //console.log(fields);
-                event.fields = fields;
-                event.fieldset = fieldset;
-                callback(null, event);
-              });
-            });
-          },
-          makeFieldset = function(field, cb) {
-            var schemaRow = {
-                "title": field.label,
-                "type": types[field.type]
+              fields[field.name] = schemaRow;
+              fieldset.push(field.name);
+              cb(null);
             };
-            if (field.values) {
-                var values = field.values.split("|");
-                schemaRow.options = values;
-            }
-            fields[field.name] = schemaRow;
-            fieldset.push(field.name);
-            cb(null);
-          };
 
-      async.map(events, getFields, function(err, results){
-        //console.log(results);
-        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-        res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify(results), 'utf-8');
-        res.end('\n');
-      });
-    });
+        async.map(events, getFields, function(err, results){
+          //console.log(results);
+          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+          res.writeHead(200, { 'Content-type': 'application/json' });
+          res.write(JSON.stringify(results), 'utf-8');
+          res.end('\n');
+        });
+      }
+    );
   };
 
   exports.getEventFields = function(req, res) {
@@ -1367,12 +1362,14 @@
       where: {
         event_id: id
       }
-    }).success(function(fields) {
-      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-      res.writeHead(200, { 'Content-type': 'application/json' });
-      res.write(JSON.stringify(fields), 'utf-8');
-      res.end('\n');
-    });
+    }).then(
+      function(fields) {
+        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+        res.writeHead(200, { 'Content-type': 'application/json' });
+        res.write(JSON.stringify(fields), 'utf-8');
+        res.end('\n');
+      }
+    );
   };
 
   exports.makePayment = function(req, res) {
@@ -1411,12 +1408,13 @@
              description: "Conference Registration"
             },
             customer: {
-             email: (values.registrant.email !== "") ? values.registrant.email : 'voss.matthew@gmail.com'
+              id: values.registrant.confirmNum,
+              email: (values.registrant.email) ? values.registrant.email : 'voss.matthew@gmail.com'
             },
             billTo: null
           }
         };
-
+        
         if (values.registrant.badge_prefix === "E") {
           transaction.transactionRequest.order.invoiceNumber = values.registrant.biller.confirmNum;
           transaction.transactionRequest.customer.email = values.registrant.biller.email;
@@ -1460,7 +1458,7 @@
                 transaction,
                 function(err, results) {
                   console.log(err, results);
-                  callback(null, results);
+                  callback(err, results);
                 }
               );
             },
@@ -1475,7 +1473,7 @@
                 details,
                 function(err, transDetails) {
                   console.log(err, transDetails);
-                  callback(null, transDetails);
+                  callback(err, transDetails);
                 }
               );
             },
@@ -1501,7 +1499,11 @@
             }
           ],
           function(err, result) {
-            successCallback(result);
+            if (err) {
+              sendBack(res, err, 500);
+            } else {
+              sendBack(res, result, 200);
+            }
           }
         );
       }
@@ -1518,46 +1520,78 @@
   };
 
   exports.downloadCheckedInAttendees = function(req, res) {
-
-    registrants.getAllCheckedInAttendees(
+    
+    registrants.searchAttendees(
+      ['attend'],
+      null,
+      1,
+      null,
+      null,
       function(attendees) {
-        fs.readFile(__dirname + '/../assets/templates/attendees.csv', 'utf8', function(error, content) {
-          var pageBuilder = handlebars.compile(content),
-              html = pageBuilder({'attendees': attendees});
-
-          res.writeHead(200, { 'Content-Type': 'text/csv' });
-          res.write(html, 'utf-8');
-          res.end('\n');
-        });
-      }
+        console.log(attendees[0]);
+        json2csv(
+          {
+            data: attendees, 
+            fields: [
+              'paddedRegId', 
+              'confirmation', 
+              'firstname',
+              'lastname',
+              'title',
+              'email',
+              'phone',
+              'company',
+              'address',
+              'address2',
+              'city',
+              'state',
+              'zipcode',
+              'siteid'
+            ]
+          }, 
+          function(err, csv) {
+            res.writeHead(200, { 'Content-Type': 'text/csv' });
+            res.write(csv, 'utf-8');
+            res.end('\n');
+          }
+        );
+        
+     }
     );
+
   };
   
   exports.findSiteId = function(req, res) {
     var query = req.query.search;
      models.Sites
     .findAll({ where: ["siteId LIKE ?", "%"+query+"%"] })
-    .success(function(siteids) {
-      sendBack(res, siteids, 200);
-    });
+    .then(
+      function(siteids) {
+        sendBack(res, siteids, 200);
+      }
+     );
   };
   
   exports.findVotingSiteId = function(req, res) {
     var query = req.query.search;
      models.VotingSites
     .findAll({ where: ["siteId LIKE ?", "%"+query+"%"] })
-    .success(function(siteids) {
-      sendBack(res, siteids, 200);
-    });
+    .then(
+      function(siteids) {
+        sendBack(res, siteids, 200);
+      }
+     );
   };
   
   exports.findCompany = function(req, res) {
     var query = req.query.search;
      models.Sites
     .findAll({ where: ["company LIKE ?", "%"+query+"%"] })
-    .success(function(siteids) {
-      sendBack(res, siteids, 200);
-    });
+    .then(
+      function(siteids) {
+        sendBack(res, siteids, 200);
+      }
+     );
   };
   
     //Auth a user
@@ -1572,7 +1606,7 @@
             response: null
           }
         };
-    models.Votes.find({ where: {registrantid: registrantId} }).success(function(vote) {
+    models.Votes.find({ where: {registrantid: registrantId} }).then(function(vote) {
       if (vote === null) {
         registrants.getAttendee(
           registrantId, 
@@ -1686,13 +1720,13 @@
                 "datecast"
               ]
             )
-            .success(
+            .then(
               function(results) {
                 cb(null, results);
               }
             );
         };
-    models.Votes.find({ where: {registrantid: user.registrantId} }).success(function(vote) {
+    models.Votes.find({ where: {registrantid: user.registrantId} }).then(function(vote) {
       if (vote === null) {
         async.map(
           user.votes, 
@@ -1715,9 +1749,11 @@
   exports.offices = function(req, res) {
     models.ElectionOffices
       .findAll({ include: [{model:models.ElectionOfficeCandidates, as:"Candidates"}] })
-      .success(function(offices) {
-        sendBack(res, offices, 200);
-      });
+      .then(
+        function(offices) {
+          sendBack(res, offices, 200);
+        }
+      );
   };
 
   var updateCheckedIn = function() {
@@ -1728,15 +1764,19 @@
   };
   
   var getSiteInfo = function(siteId, cb) {
-     models.Sites.find({ where: { siteId: siteId } }).success(function(site) {
-      cb(site);
-    });
+     models.Sites.find({ where: { siteId: siteId } }).then(
+      function(site) {
+        cb(site);
+      }
+     );
   };
   
   var getVotingSiteInfo = function(siteId, cb) {
-     models.VotingSites.find({ where: { siteId: siteId } }).success(function(site) {
-      cb(site);
-    });
+     models.VotingSites.find({ where: { siteId: siteId } }).then(
+      function(site) {
+        cb(site);
+      }
+     );
   };
   
   var updateVoteTotals = function() {
@@ -1744,18 +1784,20 @@
       function(callback){
         models.ElectionOffices
         .findAll({ include: [{model:models.ElectionOfficeCandidates, as:"Candidates"}] })
-        .success(function(offices) {
-          var result = {
-            offices: offices
-          };
-          callback(null, result); 
-        });
+        .then(
+          function(offices) {
+            var result = {
+              offices: offices
+            };
+            callback(null, result); 
+          }
+        );
       },
       function(result, callback){
         models.Votes.findAll({
           attributes: ['candidateid', [Sequelize.fn('count', Sequelize.col('candidateid')), 'count']],
           group: ['candidateid']
-        }).success(
+        }).then(
           function(votes) {
             result.votes = votes;
             callback(null, result);
@@ -1780,9 +1822,11 @@
             group: 'registrantid'
           }
         )
-        .success(function(votes) {
-          callback(null, votes);
-        });
+        .then(
+          function(votes) {
+            callback(null, votes);
+          }
+        );
       },
       function(votes, callback){
         async.map(
