@@ -1015,11 +1015,13 @@
                 data: data
             };
             printer.execute("Print-Job", msg, function(err, res){
-              resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-              resource.writeHead(200, { 'Content-type': 'application/json' });
-              resource.write(JSON.stringify(res), 'utf-8');
-              resource.end('\n');
-              console.log(res);
+              if (res) {
+                resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
+                resource.writeHead(200, { 'Content-type': 'application/json' });
+                resource.write(JSON.stringify(res), 'utf-8');
+                resource.end('\n');
+                console.log(res);
+              }
             });
           },
           registrantCallback = function(registrants) {
@@ -1405,7 +1407,7 @@
             payment: null,
             order: {
              invoiceNumber: values.registrant.confirmNum,
-             description: "Conference Registration"
+             description: values.registrant.event.title
             },
             customer: {
               id: values.registrant.confirmNum,

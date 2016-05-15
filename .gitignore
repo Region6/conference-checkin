@@ -9,3 +9,4 @@ public/js/vendor.js
 tmp/
 badge*.svg
 badge*.pdf
+scripts/badges/

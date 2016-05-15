@@ -131,7 +131,7 @@
          sodipodi:role="line"
          x="23.891483"
          y="-656.34924"
-         id="tspan13338">{{title1}}<tspan
+         id="tspan13338">{{truncate title1 20}}<tspan
    x="23.891483"
    y="-656.34924"
    style="font-size:17px;fill:#666666"
@@ -147,7 +147,7 @@
          sodipodi:role="line"
          x="24.279942"
          y="-637.59723"
-         id="tspan13344">{{company1}}<tspan
+         id="tspan13344">{{truncate company1 20}}<tspan
    x="24.279942"
    y="-637.59723"
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999"
@@ -225,7 +225,7 @@
          sodipodi:role="line"
          x="311.83594"
          y="-657.48456"
-         id="tspan13338-6">{{title2}}<tspan
+         id="tspan13338-6">{{truncate title2 20}}<tspan
    x="311.83594"
    y="-657.48456"
    style="font-size:17px;fill:#666666"
@@ -241,7 +241,7 @@
          sodipodi:role="line"
          x="312.2244"
          y="-638.73254"
-         id="tspan13344-8">{{company2}}<tspan
+         id="tspan13344-8">{{truncate company2 20}}<tspan
    x="312.2244"
    y="-638.73254"
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999"
@@ -319,7 +319,7 @@
          sodipodi:role="line"
          x="22.386806"
          y="-440.18799"
-         id="tspan13338-4">{{title3}}<tspan
+         id="tspan13338-4">{{truncate title3 20}}<tspan
    x="22.386806"
    y="-440.18799"
    style="font-size:17px;fill:#666666"
@@ -335,7 +335,7 @@
          sodipodi:role="line"
          x="22.775265"
          y="-421.43597"
-         id="tspan13344-3">{{company3}}<tspan
+         id="tspan13344-3">{{truncate company3 20}}<tspan
    x="22.775265"
    y="-421.43597"
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999"
@@ -413,7 +413,7 @@
          sodipodi:role="line"
          x="314.35291"
          y="-440.18799"
-         id="tspan13338-2">{{title4}}<tspan
+         id="tspan13338-2">{{truncate title4 20}}<tspan
    x="314.35291"
    y="-440.18799"
    style="font-size:17px;fill:#666666"
@@ -429,7 +429,7 @@
          sodipodi:role="line"
          x="314.74136"
          y="-421.43597"
-         id="tspan13344-0">{{company4}}<tspan
+         id="tspan13344-0">{{truncate company4 20}}<tspan
    x="314.74136"
    y="-421.43597"
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999"
@@ -507,7 +507,7 @@
          sodipodi:role="line"
          x="24.903765"
          y="-226.2473"
-         id="tspan13338-8">{{title5}}<tspan
+         id="tspan13338-8">{{truncate title5 20}}<tspan
    x="24.903765"
    y="-226.2473"
    style="font-size:17px;fill:#666666"
@@ -523,7 +523,7 @@
          sodipodi:role="line"
          x="25.292223"
          y="-207.49529"
-         id="tspan13344-7">{{company5}}<tspan
+         id="tspan13344-7">{{truncate company5 20}}<tspan
    x="25.292223"
    y="-207.49529"
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999"
@@ -601,7 +601,7 @@
          sodipodi:role="line"
          x="312.67496"
          y="-225.40831"
-         id="tspan13338-45">{{title6}}<tspan
+         id="tspan13338-45">{{truncate title6 20}}<tspan
    x="312.67496"
    y="-225.40831"
    style="font-size:17px;fill:#666666"
@@ -617,7 +617,7 @@
          sodipodi:role="line"
          x="313.06342"
          y="-206.6563"
-         id="tspan13344-6">{{company6}}<tspan
+         id="tspan13344-6">{{truncate company6 20}}<tspan
    x="313.06342"
    y="-206.6563"
    style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999"

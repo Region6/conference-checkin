@@ -11,7 +11,7 @@ var Converter = require("csvtojson").Converter,
     moment = require('moment-timezone'),
     config, OnsiteAttendees, ExhibitorAttendees,
     configFile = process.cwd()+'/config/settings.json',
-    dupSiteIdField = "Enter your 6-8 digit VPPPA Member ID1",
+    eventId = 'ed9fa964-1166-11e6-8a98-6f0709b7f324',
     finish = function() {
       process.exit();
     },
@@ -118,6 +118,7 @@ ExhibitorAttendees
           console.log(e);
           phoneNumber = null;
         }
+        record.eventId = eventId;
         record.phone = phoneNumber;
         registrant.update(record).then(
           function(result) {

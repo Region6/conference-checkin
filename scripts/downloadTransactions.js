@@ -111,7 +111,7 @@ var getTransaction = function(trans, index, cb) {
           });
         }
         record = underscore.extend(record, {
-          invoiceNumber: res.transaction.order.invoiceNumber
+          invoiceNumber: ("order" in res.transaction) ? res.transaction.order.invoiceNumber : null
         });
         record = underscore.extend(record, res.transaction.payment.creditCard);
         record = underscore.extend(record, res.transaction.batch);
