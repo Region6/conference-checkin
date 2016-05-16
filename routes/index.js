@@ -758,12 +758,12 @@
                 registrant.paddedRegId = registrant.registrantId;
                 var svg = pageBuilder(registrant);
                 svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
-             
+                /*
                 fs.writeFile('badge.'+registrant.registrantId+".svg", svg, function (err) {
                   if (err) throw err;
                   console.log('It\'s saved!');
                 });
-             
+                */
                 var svgPdf = new Rsvg(svg);
                 svgPdf.on('load', function() {
                   var data = svgPdf.render({
