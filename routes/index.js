@@ -1416,11 +1416,11 @@
             billTo: null
           }
         };
-        /*
+
         if (values.registrant.badge_prefix === "E") {
-          transaction.transactionRequest.customer.email = values.registrant.biller.email;
+          transaction.transactionRequest.order.invoiceNumber = values.registrant.confirmation;
         }
-        */
+
 
         if (values.transaction.track !== null) {
           transaction.transactionRequest.payment = {
