@@ -1588,7 +1588,7 @@
   exports.findCompany = function(req, res) {
     var query = req.query.search;
      models.Sites
-    .findAll({ where: ["company LIKE ?", "%"+query+"%"] })
+    .findAll({ where: ["company LIKE ?", query+"%"] })
     .then(
       function(siteids) {
         sendBack(res, siteids, 200);
