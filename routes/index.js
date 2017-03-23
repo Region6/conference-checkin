@@ -1657,11 +1657,11 @@
   };
 
   exports.verifySiteId = function(req, res) {
-    var member = req.body;
+    var siteId = req.params.siteId;
      async.waterfall([
       function(callback){
         getVotingSiteInfo(
-          member.siteId, 
+          siteId, 
           function(site) {
             site = site.toJSON();
             callback(null, site);
@@ -1678,9 +1678,7 @@
         );
       }
     ],function(err, site) {
-      member.site = site;
-      member.siteId = site.siteId;
-      sendBack(res, member, 200);
+      sendBack(res, site, 200);
     });
   };
 
