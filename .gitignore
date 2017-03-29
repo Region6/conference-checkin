@@ -10,3 +10,4 @@ tmp/
 badge*.svg
 badge*.pdf
 scripts/badges/
+.vscode/
