@@ -1595,6 +1595,32 @@
       }
      );
   };
+
+  exports.findVotingSites = function(req, res) {
+    var query = req.params.query;
+     models.VotingSites
+    .findAll({ where: ["company LIKE ?", query+"%"] })
+    .then(
+      function(siteids) {
+        sendBack(res, siteids, 200);
+      }
+     );
+  };
+
+  exports.getVotingSites = function(req, res) {
+    var query = req.query.search;
+     models.VotingSites
+    .findAll(
+      {
+        order: 'company ASC',
+      }
+    )
+    .then(
+      function(siteids) {
+        sendBack(res, siteids, 200);
+      }
+     );
+  };
   
     //Auth a user
   exports.authVoter = function(req, res) {

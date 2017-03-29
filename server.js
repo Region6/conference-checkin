@@ -176,6 +176,8 @@ apiRouter.post('/payment', routes.makePayment);
 apiRouter.get('/getNumberCheckedIn', routes.getNumberCheckedIn);
 apiRouter.get('/company', routes.findCompany);
 apiRouter.get('/siteid', routes.findSiteId);
+apiRouter.get('/votingSite/:query', routes.findVotingSites);
+apiRouter.get('/votingSites', routes.getVotingSites);
 apiRouter.get('/votingSiteId', routes.findVotingSiteId);
 apiRouter.get('/voter/:voterId', routes.authVoter);
 apiRouter.get('/site/:siteId', routes.verifySiteId);
