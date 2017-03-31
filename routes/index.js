@@ -1689,7 +1689,9 @@
         getVotingSiteInfo(
           siteId, 
           function(site) {
-            site = site.toJSON();
+            if (site) {
+              site = site.toJSON();
+            }
             callback(null, site);
           }
         );
@@ -1845,7 +1847,8 @@
         .findAll(
           {
             where: { siteid: siteId },
-            group: 'registrantid'
+            group: 'registrantid',
+            raw: true
           }
         )
         .then(
