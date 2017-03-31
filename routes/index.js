@@ -1697,13 +1697,18 @@
         );
       },
       function(site, callback){
-        getSiteVoters(
-          site.siteId, 
-          function(voters) {
-            site.voters = voters;
-            callback(null, site);
-          }
-        );
+        if (site) {
+          getSiteVoters(
+            site.siteId, 
+            function(voters) {
+              site.voters = voters;
+              callback(null, site);
+            }
+          );
+        } else {
+          site.voters = [];
+          callback(null, site);
+        }
       }
     ],function(err, site) {
       sendBack(res, site, 200);
