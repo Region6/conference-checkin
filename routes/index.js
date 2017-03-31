@@ -1706,7 +1706,6 @@
             }
           );
         } else {
-          site.voters = [];
           callback(null, site);
         }
       }
