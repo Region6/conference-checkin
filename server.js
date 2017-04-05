@@ -183,7 +183,7 @@ apiRouter.get('/voter/:voterId', routes.authVoter);
 apiRouter.get('/site/:siteId', routes.verifySiteId);
 apiRouter.put('/voter/voter-type/:voterId', routes.addVoterType);
 apiRouter.delete('/voter/:voterId', routes.logoutVoter);
-apiRouter.put('/castVote/:id', routes.castVotes);
+apiRouter.post('/castVote', routes.castVotes);
 apiRouter.get('/offices', routes.offices);
 
 app.use('/api', apiRouter);
