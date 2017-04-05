@@ -1732,7 +1732,7 @@
           }
         },
         recordVote = function(office, cb) {
-          var vote = office.vote;
+          var vote = office;
           /*
           vote.datecast = new Date();
           vote.uuid = uid;
@@ -1854,8 +1854,8 @@
         .findAll(
           {
             where: { siteid: siteId },
-            attributes: ['registrantid', [Sequelize.fn('count', Sequelize.col('registrantid')), 'count']],
-            group: 'registrantid',
+            attributes: ['registrantid', 'votertype', 'datecast', [Sequelize.fn('count', Sequelize.col('registrantid')), 'count']],
+            group: ['registrantid', 'votertype', 'datecast',],
             raw: true,
           }
         )
