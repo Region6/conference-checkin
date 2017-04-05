@@ -1828,7 +1828,8 @@
       function(result, callback){
         models.Votes.findAll({
           attributes: ['candidateid', [Sequelize.fn('count', Sequelize.col('candidateid')), 'count']],
-          group: ['candidateid']
+          group: 'candidateid',
+          raw: true,
         }).then(
           function(votes) {
             result.votes = votes;
@@ -1851,8 +1852,9 @@
         .findAll(
           {
             where: { siteid: siteId },
+            attributes: ['registrantid', [Sequelize.fn('count', Sequelize.col('registrantid')), 'count']],
             group: 'registrantid',
-            raw: true
+            raw: true,
           }
         )
         .then(
