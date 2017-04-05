@@ -1733,12 +1733,14 @@
         },
         recordVote = function(office, cb) {
           var vote = office.vote;
+          /*
           vote.datecast = new Date();
           vote.uuid = uid;
           vote.registrantid = user.registrantId;
           vote.siteid = user.siteId;
           vote.votertype = user.voterType;
           vote.candidateid = vote.id;
+          */
           models.Votes
             .create(
               vote, 
