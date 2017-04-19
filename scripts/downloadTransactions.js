@@ -23,16 +23,16 @@ var getBatchDates = function() {
     var sql =   "select * " +
                 "from ( " +
                 "( " +
-                "SELECT DISTINCT DATE_FORMAT(created, '%Y-%m-%d') as batchDate " +
+                "SELECT DISTINCT DATE_FORMAT(createdAt, '%Y-%m-%d') as batchDate " +
                 "FROM onsiteAttendees  " +
-                "LEFT OUTER JOIN batchesDownloaded on DATE_FORMAT(onsiteAttendees.created, '%Y-%m-%d') = batchesDownloaded.batchDate  " +
+                "LEFT OUTER JOIN batchesDownloaded on DATE_FORMAT(onsiteAttendees.createdAt, '%Y-%m-%d') = batchesDownloaded.batchDate  " +
                 "WHERE batchesDownloaded.batchDate is null " +
                 ") " +
                 "UNION ALL " +
                 "( " +
-                "SELECT DISTINCT DATE_FORMAT(created, '%Y-%m-%d') as batchDate " +
+                "SELECT DISTINCT DATE_FORMAT(createdAt, '%Y-%m-%d') as batchDate " +
                 "FROM exhibitors  " +
-                "LEFT OUTER JOIN batchesDownloaded on DATE_FORMAT(exhibitors.created, '%Y-%m-%d') = batchesDownloaded.batchDate  " +
+                "LEFT OUTER JOIN batchesDownloaded on DATE_FORMAT(exhibitors.createdAt, '%Y-%m-%d') = batchesDownloaded.batchDate  " +
                 "WHERE batchesDownloaded.batchDate is null " +
                 ") ) a " +
                 "WHERE batchDate IS NOT NULL " +
@@ -100,6 +100,7 @@ var getTransaction = function(trans, index, cb) {
         delete record.marketType;
         delete record.customerIP;
         delete record.entryMethod;
+        delete record.solution;
         //console.log("customer", Object.keys(res.transaction.customer));
        //console.log("batch", Object.keys(res.transaction.batch));
        //console.log("order", Object.keys(res.transaction.order));

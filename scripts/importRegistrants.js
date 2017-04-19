@@ -1,4 +1,6 @@
 var Converter = require("csvtojson").Converter,
+    Hashids = require('hashids'),
+    gpc = require('generate-pincode'),
     converter = new Converter({}),
     Sequelize = require("sequelize"),
     fs = require('fs'),
@@ -10,21 +12,22 @@ var Converter = require("csvtojson").Converter,
     async = require('async'),
     moment = require('moment-timezone'),
     mapping = {
-      "Contact Last Name": "lastname",
-      "Contact First Name": "firstname",
+      "Last Name": "lastname",
+      "First Name": "firstname",
       "Email Address": "email",
       "Company": "organization",
       "Title": "title",
       "Work Addr 1": "address",
       "Work Addr 2": "address2",
       "Work City": "city",
-      "Work State": "state",
-      "Work ZIP/Postal Code": "zip",
-      "Work Phone": "phone",
-      "Registration Confirmation Number": "confirmation",
+      "Work State/Prov.": "state",
+      "Work Zip/Postal Code": "zip",
+      "wphone": "phone",
+      "Confirmation #": "confirmation",
       "Managment?": "management",
       "Enter your 6-8 digit VPPPA Member ID": "siteId",
-      "Registration Date": "created"
+      "Created Date": "createdAt",
+      "Group Confirmation Number": "groupConfirm"
     },
     eventIds = {
       "VPPPA Member": "f4f1fc6a-0709-11e6-9571-53e72e0ba997",
@@ -32,7 +35,7 @@ var Converter = require("csvtojson").Converter,
       "Non Member": "7a0364ac-070f-11e6-99ba-1bc46ece7a2f",
       "OSHA Employee": "95123ef4-17f8-11e6-be73-a7d35618aafa"
     },
-    config, OnsiteAttendees,
+    config, OnsiteAttendees, count = 0,
     configFile = process.cwd()+'/config/settings.json',
     dupSiteIdField = "Enter your 6-8 digit VPPPA Member ID1",
     finish = function() {
@@ -76,6 +79,8 @@ var Converter = require("csvtojson").Converter,
             return reg.update(registrant);
           } else {
             console.log("New record", registrant.confirmation);
+            count = count + 1;
+            registrant.pin = gpc(4);
             return OnsiteAttendees.create(registrant);
           }
         },
@@ -94,12 +99,74 @@ var Converter = require("csvtojson").Converter,
       );
     };
 
+const parseCsv = function() {
+  converter.fromFile(
+    "tmp/registrants.csv",
+    function(err, results) {
+      //console.log(results);
+      var registrants = [];
+      results.forEach(function(reg, index) {
+        var record = {}
+        for (var prop in mapping) {
+          var key = mapping[prop];
+          if (mapping[prop] === "siteId") {
+            var siteId = (reg[dupSiteIdField]) ? reg[dupSiteIdField] : reg[prop];
+            //console.log(siteId);
+            if (Number.isInteger(siteId)) {
+              record[key] = pad(siteId, 6);
+            } else {
+              record[key] = null;
+            }
+          } else if(mapping[prop] === "management") {
+            var management = (reg[prop] === "Yes") ? true : false;
+            record[key] = management;
+          } else if(mapping[prop] === "createdAt") {
+            var created = moment.tz(reg[prop], "MMM D YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
+            record[key] = created;
+            record["updatedAt"] = created;
+          } else {
+            record[key] = reg[prop];
+          }
+        }
+        record.eventId = eventIds[reg["Registration Type"]];
+        if (reg["Registration Type"] === "") {
+          record.eventId = "f4f1fc6a-0709-11e6-9571-53e72e0ba997";
+        }
+        if (reg["Registration Type"] === "Workshop Presenter") {
+          record.speaker = 1;
+        }
+        
+        console.log(index);
+        if (reg["Invitee Status"] === "Cancelled") {
+          var deleted = moment.tz(reg["Last Registration Date"], "MMM D YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
+          record["deletedAt"] = deleted;
+        } else {
+          record["deletedAt"] = null;
+        }
+        registrants.push(record);
+      });
+      
+      async.each(
+        registrants,
+        function(reg, cb) {
+          updateRegistrant(reg, function() {
+            cb();
+          });
+        },
+        function(error) {
+          finish();
+        }
+      );
+    }
+  );
+};
+
 config = nconf
 .argv()
 .env("__")
 .file({ file: configFile });
 
-
+const hashids = new Hashids(config.get("salt"), 4, "ABCDEFGHJKMNPQRSTUVWXYZ23456789");
 checkin = new Sequelize(
   config.get("mysql:database"),
   config.get("mysql:username"),
@@ -112,7 +179,6 @@ checkin = new Sequelize(
     pool: { maxConnections: 5, maxIdleTime: 30},
     define: {
       freezeTableName: true,
-      timestamps: false
     }
   }
 );
@@ -133,67 +199,25 @@ OnsiteAttendees = checkin.define('onsiteAttendees', {
   management:           { type: Sequelize.BOOLEAN },
   title :               { type: Sequelize.STRING(255) },
   organization :        { type: Sequelize.STRING(255) },
-  created :             { type: Sequelize.DATE },
-  updated :             { type: Sequelize.DATE },
   siteId :              { type: Sequelize.STRING(10) },
   attend:               { type: Sequelize.BOOLEAN },
   checked_in_time :     { type: Sequelize.DATE },
   isCheck :             { type: Sequelize.STRING(255) },
   groupConfirm :        { type: Sequelize.STRING(255) },
+  pin :                 { type: Sequelize.STRING(255) },
   speaker:              { type: Sequelize.BOOLEAN },
   exhibitor:            { type: Sequelize.BOOLEAN },
-  deletedAt :           { type: Sequelize.DATE }
+  deletedAt :           { type: Sequelize.DATE },
+  createdAt :           { type: Sequelize.DATE },
+  updatedAt :           { type: Sequelize.DATE }
 });
 
-converter.fromFile(
-  "tmp/registrants.csv",
-  function(err, results) {
-    //console.log(results);
-    var registrants = [];
-    results.forEach(function(reg, index) {
-      var record = {}
-      for (var prop in mapping) {
-        var key = mapping[prop];
-        if (mapping[prop] === "siteId") {
-          var siteId = (reg[dupSiteIdField]) ? reg[dupSiteIdField] : reg[prop];
-          //console.log(siteId);
-          if (Number.isInteger(siteId)) {
-            record[key] = pad(siteId, 6);
-          } else {
-            record[key] = null;
-          }
-        } else if(mapping[prop] === "management") {
-          var management = (reg[prop] === "Yes") ? true : false;
-          record[key] = management;
-        } else if(mapping[prop] === "created") {
-          var created = moment.tz(reg[prop], "MMM D YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
-          record[key] = created;
-        } else {
-          record[key] = reg[prop];
-        }
-      }
-      record.eventId = eventIds[reg["Registrant Type"]];
-      
-      console.log(index);
-      if (reg["Invitee Status"] === "Cancelled") {
-        var deleted = moment.tz(reg["Last Registration Date"], "MMM D YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
-        record["deletedAt"] = deleted;
-      } else {
-        record["deletedAt"] = null;
-      }
-      registrants.push(record);
-    });
-    
-    async.each(
-      registrants,
-      function(reg, cb) {
-        updateRegistrant(reg, function() {
-          cb();
-        });
-      },
-      function(error) {
-        finish();
-      }
-    );
+OnsiteAttendees
+.findAndCountAll()
+.then(
+  function(result) {
+    count = result.count;
+    parseCsv();
   }
 );
+

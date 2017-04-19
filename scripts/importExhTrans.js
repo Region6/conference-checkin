@@ -119,8 +119,8 @@ OnsiteAttendees = checkin.define('onsiteAttendees', {
   management:           { type: Sequelize.BOOLEAN },
   title :               { type: Sequelize.STRING(255) },
   organization :        { type: Sequelize.STRING(255) },
-  created :             { type: Sequelize.DATE },
-  updated :             { type: Sequelize.DATE },
+  createdAt :             { type: Sequelize.DATE },
+  updatedAt :             { type: Sequelize.DATE },
   siteId :              { type: Sequelize.STRING(10) },
   attend:               { type: Sequelize.BOOLEAN },
   checked_in_time :     { type: Sequelize.DATE },
@@ -149,8 +149,9 @@ Exhibitors = checkin.define('exhibitors', {
   phone :               { type: Sequelize.STRING(25) },
   title :               { type: Sequelize.STRING(255) },
   organization :        { type: Sequelize.STRING(255) },
-  created :             { type: Sequelize.DATE },
-  updated :             { type: Sequelize.DATE },
+  createdAt :             { type: Sequelize.DATE },
+  updatedAt :             { type: Sequelize.DATE },
+  deletedAt :           { type: Sequelize.DATE },
   siteId :              { type: Sequelize.STRING(10) }
 },{
   timestamps: false
@@ -165,7 +166,7 @@ converter.fromFile(
       var record = {}
       record.email = reg[emailField];
       record.transId = reg[transField];
-      record.type = reg["Payment Method"];
+      record.type = reg["Transaction Type"];
       record.refNumber = reg["Reference Number"];
       console.log(index);
       registrants.push(record);
