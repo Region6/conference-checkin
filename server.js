@@ -86,7 +86,7 @@ if (config.get("redis")) {
   redisConfig = config.get("redis");
 }
 
-var redisClient = redis.createClient(redisConfig.port, redisConfig.host),
+var redisClient = redis.createClient(redisConfig.url+'/'+redisConfig.db),
     RedisStore = require('connect-redis')(session),
     allowCrossDomain = function(req, res, next) {
       res.header('Access-Control-Allow-Origin', '*');

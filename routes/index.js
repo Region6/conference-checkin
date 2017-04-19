@@ -1,3 +1,5 @@
+/*jshint esversion: 6 */
+
 (function () {
   "use strict";
 
@@ -24,6 +26,7 @@
       parseString = require('xml2js').parseString,
       NodePDF = require('nodepdf'),
       pdfjs = require('pdfjs'),
+      Bus = require('busmq'),
       notoSansRegular = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans.ttf')),
       notoSansBold = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans-Bold.ttf')),
       font = {
@@ -40,6 +43,7 @@
       hummus          = require('hummus'),
       Rsvg            = require('librsvg').Rsvg,
       Registrants = require("node-registrants"),
+      shortid = require('shortid'),
       registrants,
       nextBadgePrinter = 0,
       opts = {},
@@ -55,6 +59,8 @@
       db = {},
       reconnectTries = 0,
       models = {},
+      bus,
+      queue,
       getPrinter = function (callback) {
         var addPrinter = function(item, cb) {
               //console.log("printer", item);
@@ -78,6 +84,18 @@
           }
         );
       };
+
+  const sendMessage = function(type, payload) {
+    console.log('sendMessage');
+    const message = {
+      id: shortid.generate(),
+      type: type,
+      date: moment().valueOf(),
+      serverId: opts.configs.get("id"),
+      payload: payload,
+    };
+    queue.push(message);
+  };
 
   Swag.registerHelpers(handlebars);
   /**
@@ -131,6 +149,44 @@
       "port": opts.configs.get("mysql:port") || 3306,
       "logging": true
     });
+    const redisHost = opts.configs.get("redis:host") || 'localhost';
+    const redisPort = opts.configs.get("redis:port") || '6379';
+    const redisAuth = opts.configs.get("redis:password") || '';
+
+    const connectString = opts.configs.get("redis:url");
+    bus = Bus.create({redis: [connectString]});
+    bus.on('online', function() {
+      console.log('bus:online');
+      queue = bus.queue('checkin');
+      queue.on('attached', function() {
+        console.log('attached to queue');
+        sendMessage('hello', {date: Date()});
+      });
+      queue.on('message', function(payload, id) {
+        const message = JSON.parse(payload);
+        console.log('message id:', id);
+        console.log('message', message);
+        if (message.serverId !== opts.configs.get("id")) {
+          const m = message.payload;
+          switch(m.type) {
+            case 'makePayment':
+              _makePayment(m.values, true);
+              break;
+            case 'updateRegistrantValues':
+              _updateRegistrantValues(m.type, m.id, m.registrantId, m.values, true);
+              break;
+            case 'addRegistrant':
+              registrants.initRegistrant(m.values);
+              break;
+            default:
+              console.log('Missing message type:', m.type);
+          }
+        }
+      });
+      queue.attach();
+      queue.consume({remove: false, index: 0});
+    });
+    bus.connect();
 
     models.Events = db.checkin.define('event', {
       slabId:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
@@ -425,6 +481,7 @@
       id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
       userId :              { type: Sequelize.INTEGER },
       eventId :             { type: Sequelize.STRING(36) },
+      pin:                  { type: Sequelize.STRING(4) },
       firstname :           { type: Sequelize.STRING(255) },
       lastname :            { type: Sequelize.STRING(255) },
       address :             { type: Sequelize.STRING(255) },
@@ -436,8 +493,9 @@
       phone :               { type: Sequelize.STRING(25) },
       title :               { type: Sequelize.STRING(255) },
       organization :        { type: Sequelize.STRING(255) },
-      created :             { type: Sequelize.DATE },
-      updated :             { type: Sequelize.DATE },
+      createdAt :           { type: Sequelize.DATE },
+      updatedAt :           { type: Sequelize.DATE },
+      deletedAt :           { type: Sequelize.DATE },
       siteId :              { type: Sequelize.STRING(10) }
     });
 
@@ -758,12 +816,12 @@
                 registrant.paddedRegId = registrant.registrantId;
                 var svg = pageBuilder(registrant);
                 svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
-                /*
+  
                 fs.writeFile('badge.'+registrant.registrantId+".svg", svg, function (err) {
                   if (err) throw err;
                   console.log('It\'s saved!');
                 });
-                */
+          
                 var svgPdf = new Rsvg(svg);
                 svgPdf.on('load', function() {
                   var data = svgPdf.render({
@@ -851,8 +909,10 @@
               shipToZip: res.transaction.shipTo.zip
           });
       }
+      /** update/insert */
       connection.query(sql, vars, function(err, result) {
           if (err) { throw err; }
+          sendMessage('saveTransaction', vars);
           callback({dbResult:result, creditResult:res});
       });
   };
@@ -1190,8 +1250,23 @@
         sid = null,
         type = req.body.type,
         values = req.body;
+    
+    const callback = function(registrant) {
+      sendBack(res, registrant, 200);
+    }
 
+    sendMessage('updateRegistrantValues', {
+      type,
+      registrantId,
+      id,
+      values
+    });
+    _updateRegistrantValues(type, id, registrantId, values, false, callback);
+  };
+
+  const _updateRegistrantValues = function(type, id, registrantId, values, remote, callback) {
     if (type === "status") {
+      /** update/insert */
       registrants.updateAttendee(
         registrantId,
         values,
@@ -1200,29 +1275,24 @@
           console.log(values.fields);
           if ("fields" in values && "attend" in values.fields) {
             if (values.attend) {
-              logAction(sid, "registrant", id, "attend", "Registrant checked in");
+              logAction(null, "registrant", id, "attend", "Registrant checked in");
               updateCheckedIn();
             } else {
-              logAction(sid, "registrant", id, "attend", "Registrant checked out");
+              logAction(null, "registrant", id, "attend", "Registrant checked out");
               updateCheckedIn();
             }
           }
-          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-          res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(registrant), 'utf-8');
-          res.end('\n');
+          if (callback) callback(registrant);
         }
       );
     } else {
+      /** update/insert */
       registrants.updateAttendeeValues(
         registrantId,
         values,
         function(registrant) {
-          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-          res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(registrant), 'utf-8');
-          res.end('\n');
           logAction(null, "registrant", id, "updated", "Registrant updated");
+          if (callback) callback(registrant);
         }
       );
     }
@@ -1250,7 +1320,8 @@
             res.write(JSON.stringify(registrants), 'utf-8');
             res.end('\n');
         };
-
+    /** update/insert */
+    sendMessage('addRegistrant', {values});
     registrants.initRegistrant(values, retCallback);
   };
 
@@ -1376,140 +1447,148 @@
 
   exports.makePayment = function(req, res) {
       var values = req.body,
-          transAction = values.transaction,
-          Request = new AuthorizeRequest({
-            api: opts.configs.get("authorizenet:id"),
-            key: opts.configs.get("authorizenet:key"),
-            rejectUnauthorized: false, // true
-            requestCert: false, // false
-            agent: false, // http.agent object
-            sandbox: opts.configs.get("authorizenet:sandbox")// true
-          }),
           successCallback = function(result) {
             res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
             res.writeHead(200, { 'Content-type': 'application/json' });
             res.write(JSON.stringify(result), 'utf-8');
             res.end('\n');
           };
-      if (values.type === "check") {
-        registrants.saveCheckTransaction(
-          values,
-          function(results) {
-            successCallback(results);
-          }
-        );
-      } else if (values.type !== "check") {
+      sendMessage('makePayment', {values});
+      _makePayment(values, false, successCallback);
 
-        var transaction = {
-          transactionRequest: {
-            transactionType: "authCaptureTransaction",
-            amount: values.transaction.amount,
-            payment: null,
-            order: {
-             invoiceNumber: values.registrant.confirmNum,
-             description: values.registrant.event.title
-            },
-            customer: {
-              id: values.registrant.confirmNum,
-              email: (values.registrant.email) ? values.registrant.email : 'voss.matthew@gmail.com'
-            },
-            billTo: null
-          }
-        };
+  };
 
-        if (values.registrant.badge_prefix === "E") {
-          transaction.transactionRequest.order.invoiceNumber = values.registrant.confirmation;
+  const _makePayment = function(values, remote, callback) {
+    const Request = new AuthorizeRequest({
+      api: opts.configs.get("authorizenet:id"),
+      key: opts.configs.get("authorizenet:key"),
+      rejectUnauthorized: false, // true
+      requestCert: false, // false
+      agent: false, // http.agent object
+      sandbox: opts.configs.get("authorizenet:sandbox")// true
+    });
+
+    if (values.type === "check") {
+      /** update/insert */
+      registrants.saveCheckTransaction(
+        values,
+        function(results) {
+          if (callback) callback(results);
         }
+      );
+    } else if (values.type !== "check") {
 
-
-        if (values.transaction.track !== null) {
-          transaction.transactionRequest.payment = {
-            trackData: {
-              track1: values.transaction.track
-            }
-          };
-          transaction.transactionRequest.billTo = {
-            firstName: values.transaction.firstName,
-            lastName: values.transaction.lastName
-          };
-          transaction.transactionRequest.retail = {
-            marketType: 2,
-            deviceType: 5
-          };
-        } else {
-          transaction.transactionRequest.payment = {
-             creditCard: {
-              cardNumber: values.transaction.cardNumber.replace(/\s+/g, ''),
-              expirationDate: values.transaction.expirationDate.replace(/\s+/g, ''),
-              cardCode: values.transaction.security.replace(/\s+/g, '')
-            }
-          };
-          transaction.transactionRequest.billTo = {
-            firstName: values.transaction.name.split(" ")[0],
-            lastName: values.transaction.name.split(" ")[1]
-          };
-
+      var transaction = {
+        transactionRequest: {
+          transactionType: "authCaptureTransaction",
+          amount: values.transaction.amount,
+          payment: null,
+          order: {
+            invoiceNumber: values.registrant.confirmNum,
+            description: values.registrant.event.title
+          },
+          customer: {
+            id: values.registrant.confirmNum,
+            email: (values.registrant.email) ? values.registrant.email : 'voss.matthew@gmail.com'
+          },
+          billTo: null
         }
+      };
 
-        console.log(transaction, transaction.transactionRequest.payment);
-        async.waterfall(
-          [
-            function(callback) {
-              Request.send(
-                "createTransaction",
-                transaction,
-                function(err, results) {
-                  console.log(err, results);
-                  callback(err, results);
-                }
-              );
-            },
-            function(results, callback) {
-
-              var details = {
-                transId: results.transactionResponse.transId
-              };
-
-              Request.send(
-                "getTransactionDetails",
-                details,
-                function(err, transDetails) {
-                  console.log(err, transDetails);
-                  callback(err, transDetails);
-                }
-              );
-            },
-            function(details, callback) {
-              var trans = {
-                registrant: values.registrant,
-                transaction: details.transaction
-              };
-              registrants.saveCreditTransaction(
-                trans,
-                function(dbResults) {
-                  registrants.saveAuthorizeNetTransaction(
-                    trans,
-                    function(results) {
-                      callback(
-                        null,
-                        results.db
-                      );
-                    }
-                  );
-                }
-              );
-            }
-          ],
-          function(err, result) {
-            if (err) {
-              sendBack(res, err, 500);
-            } else {
-              sendBack(res, result, 200);
-            }
-          }
-        );
+      if (values.registrant.badge_prefix === "E") {
+        transaction.transactionRequest.order.invoiceNumber = values.registrant.confirmation;
       }
 
+
+      if (values.transaction.track !== null) {
+        transaction.transactionRequest.payment = {
+          trackData: {
+            track1: values.transaction.track
+          }
+        };
+        transaction.transactionRequest.billTo = {
+          firstName: values.transaction.firstName,
+          lastName: values.transaction.lastName
+        };
+        transaction.transactionRequest.retail = {
+          marketType: 2,
+          deviceType: 5
+        };
+      } else {
+        transaction.transactionRequest.payment = {
+            creditCard: {
+            cardNumber: values.transaction.cardNumber.replace(/\s+/g, ''),
+            expirationDate: values.transaction.expirationDate.replace(/\s+/g, ''),
+            cardCode: values.transaction.security.replace(/\s+/g, '')
+          }
+        };
+        transaction.transactionRequest.billTo = {
+          firstName: values.transaction.name.split(" ")[0],
+          lastName: values.transaction.name.split(" ")[1]
+        };
+
+      }
+
+      console.log(transaction, transaction.transactionRequest.payment);
+      async.waterfall(
+        [
+          function(callback) {
+            Request.send(
+              "createTransaction",
+              transaction,
+              function(err, results) {
+                console.log(err, results);
+                callback(err, results);
+              }
+            );
+          },
+          function(results, callback) {
+
+            var details = {
+              transId: results.transactionResponse.transId
+            };
+
+            Request.send(
+              "getTransactionDetails",
+              details,
+              function(err, transDetails) {
+                console.log(err, transDetails);
+                callback(err, transDetails);
+              }
+            );
+          },
+          function(details, callback) {
+            var trans = {
+              registrant: values.registrant,
+              transaction: details.transaction
+            };
+            /** update/insert */
+            registrants.saveCreditTransaction(
+              trans,
+              function(dbResults) {
+                  /** update/insert */
+                registrants.saveAuthorizeNetTransaction(
+                  trans,
+                  function(results) {
+                    callback(
+                      null,
+                      results.db
+                    );
+                  }
+                );
+              }
+            );
+          }
+        ],
+        function(err, result) {
+          if (err && !remote) {
+            sendBack(res, err, 500);
+          } else if (!remote) {
+            sendBack(res, result, 200);
+          }
+        }
+      );
+    }
   };
 
   exports.getNumberCheckedIn = function(req, res) {
@@ -1741,6 +1820,7 @@
           vote.votertype = user.voterType;
           vote.candidateid = vote.id;
           */
+          /** update/insert */
           models.Votes
             .create(
               vote, 
