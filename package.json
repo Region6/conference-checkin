@@ -30,6 +30,7 @@
     "ipp": "1.0.0",
     "json2csv": "^2.2.2",
     "librsvg": "^0.6.3",
+    "librsvg-prebuilt": "^0.7.5",
     "lodash": "^4.11.2",
     "mdns": "^2.2.8",
     "method-override": "^2.1.3",
