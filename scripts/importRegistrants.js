@@ -17,10 +17,9 @@ var Converter = require("csvtojson").Converter,
       "Email Address": "email",
       "Company": "organization",
       "Title": "title",
-      "Work Addr 1": "address",
-      "Work Addr 2": "address2",
+      "Work Address": "address",
       "Work City": "city",
-      "Work State/Prov.": "state",
+      "State": "state",
       "Work Zip/Postal Code": "zip",
       "wphone": "phone",
       "Confirmation #": "confirmation",
@@ -121,7 +120,7 @@ const parseCsv = function() {
             var management = (reg[prop] === "Yes") ? true : false;
             record[key] = management;
           } else if(mapping[prop] === "createdAt") {
-            var created = moment.tz(reg[prop], "MMM D YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
+            var created = moment.tz(reg[prop], "DD-MMM-YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
             record[key] = created;
             record["updatedAt"] = created;
           } else {

@@ -63,6 +63,7 @@ var getTransactions = function(batchDates, index) {
                 }
             });
         };
+    console.log(batch);
 
     Request.send("getSettledBatchList", batches, function (err, res){
         console.log(err);

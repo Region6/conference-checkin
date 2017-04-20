@@ -41,7 +41,7 @@
       receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8"),
       qr              = require('qr-image'),
       hummus          = require('hummus'),
-      Rsvg            = require('librsvg').Rsvg,
+      Rsvg            = require('librsvg-prebuilt').Rsvg,
       Registrants = require("node-registrants"),
       shortid = require('shortid'),
       registrants,
@@ -168,19 +168,38 @@
         console.log('message', message);
         if (message.serverId !== opts.configs.get("id")) {
           const m = message.payload;
-          switch(m.type) {
-            case 'makePayment':
-              _makePayment(m.values, true);
-              break;
-            case 'updateRegistrantValues':
-              _updateRegistrantValues(m.type, m.id, m.registrantId, m.values, true);
-              break;
-            case 'addRegistrant':
-              registrants.initRegistrant(m.values);
-              break;
-            default:
-              console.log('Missing message type:', m.type);
-          }
+          models.eventLog.find({
+            where: {
+              eventId: m.id
+            }
+          })
+          .then(
+            function(event) {
+              if (!event) {
+                models.eventLog.create(
+                  { 
+                    eventId: m.id
+                  }
+                ).then(
+                  function(event) {
+                    switch(m.type) {
+                      case 'makePayment':
+                        _makePayment(m.values, true);
+                        break;
+                      case 'updateRegistrantValues':
+                        _updateRegistrantValues(m.type, m.id, m.registrantId, m.values, true);
+                        break;
+                      case 'addRegistrant':
+                        registrants.initRegistrant(m.values);
+                        break;
+                      default:
+                        console.log('Missing message type:', m.type);
+                    }
+                  }
+                );
+              }
+            }
+          );
         }
       });
       queue.attach();
@@ -540,6 +559,14 @@
       state:                { type: Sequelize.STRING(255) },
       zipCode:              { type: Sequelize.STRING(255) },
       siteId:               { type: Sequelize.STRING(255) }
+    });
+
+    models.eventLog = db.checkin.define('eventLog', {
+      id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      eventId:              { type: Sequelize.INTEGER },
+      createdAt :           { type: Sequelize.DATE },
+      updatedAt :           { type: Sequelize.DATE },
+      deletedAt :           { type: Sequelize.DATE }
     });
     
     getPrinter(function() {
@@ -1253,7 +1280,7 @@
     
     const callback = function(registrant) {
       sendBack(res, registrant, 200);
-    }
+    };
 
     sendMessage('updateRegistrantValues', {
       type,
