@@ -153,7 +153,7 @@
     const redisPort = opts.configs.get("redis:port") || '6379';
     const redisAuth = opts.configs.get("redis:password") || '';
 
-    const connectString = opts.configs.get("redis:url");
+    const connectString = opts.configs.get("redis:url2");
     bus = Bus.create({redis: [connectString]});
     bus.on('online', function() {
       console.log('bus:online');
