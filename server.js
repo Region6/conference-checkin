@@ -86,7 +86,28 @@ if (config.get("redis")) {
   redisConfig = config.get("redis");
 }
 
-var redisClient = redis.createClient(redisConfig.url+'/'+redisConfig.db),
+var redisClient = redis.createClient(
+      redisConfig.url+'/'+redisConfig.db,
+      {
+        retry_strategy: function (options) {
+          console.log('redis retry');
+          if (options.error && options.error.code === 'ECONNREFUSED') {
+            // End reconnecting on a specific error and flush all commands with a individual error
+            return new Error('The server refused the connection');
+          }
+          if (options.total_retry_time > 1000 * 60 * 60) {
+            // End reconnecting after a specific timeout and flush all commands with a individual error
+            return new Error('Retry time exhausted');
+          }
+          if (options.attempt > 1000) {
+            // End reconnecting with built in error
+            return undefined;
+          }
+          // reconnect after
+          return Math.min(options.attempt * 100, 3000);
+        }
+      }
+    ),
     RedisStore = require('connect-redis')(session),
     allowCrossDomain = function(req, res, next) {
       res.header('Access-Control-Allow-Origin', '*');
@@ -180,6 +201,7 @@ apiRouter.get('/votingSite/:query', routes.findVotingSites);
 apiRouter.get('/votingSites', routes.getVotingSites);
 apiRouter.get('/votingSiteId', routes.findVotingSiteId);
 apiRouter.get('/voter/:voterId', routes.authVoter);
+apiRouter.get('/voter/:voterId/pin/:pin', routes.verifyVoterPin);
 apiRouter.get('/site/:siteId', routes.verifySiteId);
 apiRouter.put('/voter/voter-type/:voterId', routes.addVoterType);
 apiRouter.delete('/voter/:voterId', routes.logoutVoter);
