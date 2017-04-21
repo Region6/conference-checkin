@@ -155,6 +155,12 @@
 
     const connectString = opts.configs.get("redis:url2");
     bus = Bus.create({redis: [connectString]});
+    bus.on('error', function(err) {
+      console.log(err);
+    });
+    bus.on('offline', function() {
+      console.log('offline');
+    });
     bus.on('online', function() {
       console.log('bus:online');
       queue = bus.queue('checkin');
@@ -182,7 +188,7 @@
                   }
                 ).then(
                   function(event) {
-                    switch(p.type) {
+                    switch(message.type) {
                       case 'makePayment':
                         _makePayment(p.values, true);
                         break;
@@ -193,7 +199,7 @@
                         registrants.initRegistrant(p.values);
                         break;
                       default:
-                        console.log('Missing message type:', p.type);
+                        console.log('Missing message type:', message.type);
                     }
                   }
                 );
