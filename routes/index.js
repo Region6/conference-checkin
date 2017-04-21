@@ -160,17 +160,17 @@
       queue = bus.queue('checkin');
       queue.on('attached', function() {
         console.log('attached to queue');
-        sendMessage('hello', {date: Date()});
+        sendMessage('hello', {date: moment().valueOf()});
       });
       queue.on('message', function(payload, id) {
         const message = JSON.parse(payload);
         console.log('message id:', id);
         console.log('message', message);
-        if (message.serverId !== opts.configs.get("id")) {
-          const m = message.payload;
+        const p = message.payload;
+        if (message.serverId !== opts.configs.get("id") && "id" in message) {
           models.eventLog.find({
             where: {
-              eventId: m.id
+              eventId: message.id
             }
           })
           .then(
@@ -178,22 +178,22 @@
               if (!event) {
                 models.eventLog.create(
                   { 
-                    eventId: m.id
+                    eventId: message.id
                   }
                 ).then(
                   function(event) {
-                    switch(m.type) {
+                    switch(p.type) {
                       case 'makePayment':
-                        _makePayment(m.values, true);
+                        _makePayment(p.values, true);
                         break;
                       case 'updateRegistrantValues':
-                        _updateRegistrantValues(m.type, m.id, m.registrantId, m.values, true);
+                        _updateRegistrantValues(p.type, p.id, p.registrantId, p.values, true);
                         break;
                       case 'addRegistrant':
-                        registrants.initRegistrant(m.values);
+                        registrants.initRegistrant(p.values);
                         break;
                       default:
-                        console.log('Missing message type:', m.type);
+                        console.log('Missing message type:', p.type);
                     }
                   }
                 );
@@ -1734,16 +1734,17 @@
         registrantId = req.params.voterId,
         regType = registrantId.slice(0,1),
         regId = parseInt(registrantId.slice(1), 10),
+        normalizedId = regType.toUpperCase() + pad(regId, 5),
         errorMsg = {
           status: "error",
           message: {
             response: null
           }
         };
-    models.Votes.find({ where: {registrantid: registrantId} }).then(function(vote) {
+    models.Votes.find({ where: {registrantid: normalizedId} }).then(function(vote) {
       if (vote === null) {
         registrants.getAttendee(
-          registrantId, 
+          normalizedId, 
           function(member) {
             if ("id" in member) {
               //console.log("member", member);
@@ -1756,14 +1757,14 @@
                     member.votes = [];
                     site = (site) ? site.toJSON() : {};
                     member.site = site;
-                    member.registrantId = registrantId;
+                    member.registrantId = normalizedId;
                     sendBack(res, member, 200);
                   }
                 );
               } else {
                 member.voterType = null;
                 member.votes = [];
-                member.registrantId = registrantId;
+                member.registrantId = normalizedId;
                 member.site = {};
                 sendBack(res, member, 200);
               }
@@ -1775,6 +1776,34 @@
         );
       } else {
         errorMsg.message.response = "You have already voted.";
+        sendBack(res, errorMsg, 401);
+      }
+    });
+  };
+
+  exports.verifyVoterPin = function(req, res) {
+    var request = req,
+        registrantId = req.params.voterId,
+        pin = req.params.pin,
+        regType = registrantId.slice(0,1),
+        regId = parseInt(registrantId.slice(1), 10),
+        errorMsg = {
+          status: "error",
+          message: {
+            response: null
+          }
+        };
+   registrants.getAttendee(
+    registrantId, 
+    function(member) {
+      if (member.pin === pin) {
+        member.voterType = null;
+        member.votes = [];
+        member.registrantId = registrantId;
+        member.site = {};
+        sendBack(res, member, 200);
+      } else {
+        errorMsg.message.response = "Invalid Pin";
         sendBack(res, errorMsg, 401);
       }
     });
