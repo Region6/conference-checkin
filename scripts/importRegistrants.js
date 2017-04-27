@@ -29,9 +29,9 @@ var Converter = require("csvtojson").Converter,
       "Group Confirmation Number": "groupConfirm"
     },
     eventIds = {
-      "VPPPA Member": "f4f1fc6a-0709-11e6-9571-53e72e0ba997",
-      "Workshop Presenter": "797979fe-070f-11e6-baec-9b71d60d6a06",
-      "Non Member": "7a0364ac-070f-11e6-99ba-1bc46ece7a2f",
+      "VPPPA Member Option": "f4f1fc6a-0709-11e6-9571-53e72e0ba997",
+      "Workshop Presenter Option": "797979fe-070f-11e6-baec-9b71d60d6a06",
+      "Non Member Option": "7a0364ac-070f-11e6-99ba-1bc46ece7a2f",
       "OSHA Employee": "95123ef4-17f8-11e6-be73-a7d35618aafa"
     },
     config, OnsiteAttendees, count = 0,
@@ -127,11 +127,11 @@ const parseCsv = function() {
             record[key] = reg[prop];
           }
         }
-        record.eventId = eventIds[reg["Registration Type"]];
-        if (reg["Registration Type"] === "") {
+        record.eventId = eventIds[reg["Registration Path"]];
+        if (reg["Registration Path"] === "") {
           record.eventId = "f4f1fc6a-0709-11e6-9571-53e72e0ba997";
         }
-        if (reg["Registration Type"] === "Workshop Presenter") {
+        if (reg["Registration Path"] === "Workshop Presenter Option") {
           record.speaker = 1;
         }
         
