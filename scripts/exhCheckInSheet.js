@@ -68,7 +68,7 @@ var Converter = require("csvtojson").Converter,
           tr.td("o", { font: font.wingding.regular, textAlign: 'center', fontSize: 24, paddingTop: 8});
           tr.td(attendee.lastname + ", " + attendee.firstname, {lineHeight: 2.0});
           tr.td("E" + pad(attendee.id, 5), {lineHeight: 2.0});
-          tr.td("*E"+ pad(attendee.id, 5)+"*", {font: font.barcode.regular, fontSize: 18, lineHeight: 2.0});
+          tr.td("*E"+ pad(attendee.id, 5)+"*", {font: font.barcode.regular, fontSize: 18, lineHeight: 2.0, paddingBottom: 5});
           cb();
         },
         function() {
@@ -177,18 +177,17 @@ OnsiteAttendees = checkin.define('onsiteAttendees', {
   management:           { type: Sequelize.BOOLEAN },
   title :               { type: Sequelize.STRING(255) },
   organization :        { type: Sequelize.STRING(255) },
-  created :             { type: Sequelize.DATE },
-  updated :             { type: Sequelize.DATE },
   siteId :              { type: Sequelize.STRING(10) },
   attend:               { type: Sequelize.BOOLEAN },
   checked_in_time :     { type: Sequelize.DATE },
-  isCheck :               { type: Sequelize.STRING(255) },
+  isCheck :             { type: Sequelize.STRING(255) },
   groupConfirm :        { type: Sequelize.STRING(255) },
+  pin :                 { type: Sequelize.STRING(255) },
   speaker:              { type: Sequelize.BOOLEAN },
   exhibitor:            { type: Sequelize.BOOLEAN },
-  deletedAt :           { type: Sequelize.DATE }
-},{
-  timestamps: false
+  deletedAt :           { type: Sequelize.DATE },
+  createdAt :           { type: Sequelize.DATE },
+  updatedAt :           { type: Sequelize.DATE }
 });
 
 Exhibitors = checkin.define('exhibitors', {
@@ -207,17 +206,17 @@ Exhibitors = checkin.define('exhibitors', {
   phone :               { type: Sequelize.STRING(25) },
   title :               { type: Sequelize.STRING(255) },
   organization :        { type: Sequelize.STRING(255) },
-  created :             { type: Sequelize.DATE },
-  updated :             { type: Sequelize.DATE },
+  deletedAt :           { type: Sequelize.DATE },
+  createdAt :           { type: Sequelize.DATE },
+  updatedAt :           { type: Sequelize.DATE },
   siteId :              { type: Sequelize.STRING(10) }
-},{
-  timestamps: false
 });
 
 ExhibitorAttendees = checkin.define('exhibitorAttendees', {
   id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
   userId :              { type: Sequelize.INTEGER },
   eventId :             { type: Sequelize.STRING(36) },
+  pin :                 { type: Sequelize.STRING(4) },
   firstname :           { type: Sequelize.STRING(255) },
   lastname :            { type: Sequelize.STRING(255) },
   address :             { type: Sequelize.STRING(255) },
@@ -229,14 +228,13 @@ ExhibitorAttendees = checkin.define('exhibitorAttendees', {
   phone :               { type: Sequelize.STRING(25) },
   title :               { type: Sequelize.STRING(255) },
   organization :        { type: Sequelize.STRING(255) },
-  created :             { type: Sequelize.DATE },
-  updated :             { type: Sequelize.DATE },
+  deletedAt :           { type: Sequelize.DATE },
+  createdAt :           { type: Sequelize.DATE },
+  updatedAt :           { type: Sequelize.DATE },
   siteId :              { type: Sequelize.STRING(10) },
   attend:               { type: Sequelize.BOOLEAN },
   checked_in_time :     { type: Sequelize.DATE },
   speaker:              { type: Sequelize.BOOLEAN }
-},{
-  timestamps: false
 });
 
 doc = pdfjs.createDocument({
