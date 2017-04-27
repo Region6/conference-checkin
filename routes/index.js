@@ -61,6 +61,7 @@
       models = {},
       bus,
       queue,
+      channel,
       getPrinter = function (callback) {
         var addPrinter = function(item, cb) {
               //console.log("printer", item);
@@ -157,12 +158,23 @@
     bus = Bus.create({redis: [connectString]});
     bus.on('error', function(err) {
       console.log(err);
+      bus = Bus.create({redis: [connectString]});
     });
     bus.on('offline', function() {
       console.log('offline');
     });
     bus.on('online', function() {
       console.log('bus:online');
+      channel = bus.pubsub('checkin-channel');
+      channel.on('message', function(message) {
+        console.log('received message', message);
+      });
+      channel.subscribe();
+      setInterval(() => { 
+         channel.publish('ping');
+        }, 
+        30000
+      );
       queue = bus.queue('checkin');
       queue.on('attached', function() {
         console.log('attached to queue');
@@ -843,11 +855,12 @@
                 );
               },
               makeSvg = function(svgbcode) {
-                svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(60,300)">'+svgbcode+'</g>';
+                svgBarcode = '<g id="barcode" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(64,320)">'+svgbcode+'</g>';
                 registrant.barcode = svgBarcode;
                 registrant.fields.id = registrant.registrantId;
                 registrant.paddedRegId = registrant.registrantId;
                 var svg = pageBuilder(registrant);
+                var shiftG = '<g id="shiftBox" transform="translate(-15,-15)">';
                 svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
   
                 fs.writeFile('badge.'+registrant.registrantId+".svg", svg, function (err) {
