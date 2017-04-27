@@ -78,6 +78,7 @@
     "grunt-json": "latest"
   },
   "scripts": {
-    "start": "grunt server"
+    "start": "grunt server",
+    "genBadge": "node scripts/genBadge"
   }
 }
