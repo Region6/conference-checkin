@@ -81,7 +81,7 @@ var fs = require('fs'),
                     );
                   },
                   makeSvg = function(svgbcode) {
-                    svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(60,300)">'+svgbcode+'</g>';
+                    svgBarcode = '<g id="elements" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(70,320)">'+svgbcode+'</g>';
                     registrant.barcode = svgBarcode;
                     registrant.fields.id = registrant.registrantId;
                     registrant.paddedRegId = registrant.registrantId;
