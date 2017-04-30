@@ -140,6 +140,7 @@ var getTransaction = function(trans, index, cb) {
         }
         record.submitTimeUTC = moment(record.submitTimeUTC, 'YYYY-MM-DDTHH:mm:ss.SSSZ').format('YYYY-MM-DD HH:mm:ss');
         record.submitTimeLocal = moment(record.submitTimeLocal, 'YYYY-MM-DDTHH:mm:ss.SSS').format('YYYY-MM-DD HH:mm:ss');
+        record.taxExempt = (record.taxExempt === 'true') ? true : false;
         connection.query(sql, record, function(err, rows, fields) {
             if (err) throw err;
             /*
