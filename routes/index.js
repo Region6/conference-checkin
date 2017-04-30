@@ -1493,13 +1493,13 @@
 
   exports.makePayment = function(req, res) {
       var values = req.body,
-          successCallback = function(result) {
+          successCallback = function(status, result) {
             res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-            res.writeHead(200, { 'Content-type': 'application/json' });
+            res.writeHead(status, { 'Content-type': 'application/json' });
             res.write(JSON.stringify(result), 'utf-8');
             res.end('\n');
           };
-      sendMessage('makePayment', {values});
+      //sendMessage('makePayment', {values});
       _makePayment(values, false, successCallback);
 
   };
@@ -1519,7 +1519,7 @@
       registrants.saveCheckTransaction(
         values,
         function(results) {
-          if (callback) callback(results);
+          if (callback) callback(200, results);
         }
       );
     } else if (values.type !== "check") {
@@ -1578,17 +1578,17 @@
       console.log(transaction, transaction.transactionRequest.payment);
       async.waterfall(
         [
-          function(callback) {
+          function(calback) {
             Request.send(
               "createTransaction",
               transaction,
               function(err, results) {
                 console.log(err, results);
-                callback(err, results);
+                calback(err, results);
               }
             );
           },
-          function(results, callback) {
+          function(results, cback) {
 
             var details = {
               transId: results.transactionResponse.transId
@@ -1599,11 +1599,11 @@
               details,
               function(err, transDetails) {
                 console.log(err, transDetails);
-                callback(err, transDetails);
+                cback(err, transDetails);
               }
             );
           },
-          function(details, callback) {
+          function(details, cback) {
             var trans = {
               registrant: values.registrant,
               transaction: details.transaction
@@ -1616,7 +1616,7 @@
                 registrants.saveAuthorizeNetTransaction(
                   trans,
                   function(results) {
-                    callback(
+                    cback(
                       null,
                       results.db
                     );
@@ -1628,9 +1628,9 @@
         ],
         function(err, result) {
           if (err && !remote) {
-            sendBack(res, err, 500);
+            callback(500, err);
           } else if (!remote) {
-            sendBack(res, result, 200);
+            callback(200, result);
           }
         }
       );
