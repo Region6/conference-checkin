@@ -1,6 +1,7 @@
 var AuthorizeRequest = require('auth-net-request'),
     mysql       = require('mysql'),
     underscore  = require('underscore'),
+    moment      = require('moment'),
     config      = require(process.cwd()+'/config/settings.json');
 
 console.log(config);
@@ -37,6 +38,7 @@ var getBatchDates = function() {
                 ") ) a " +
                 "WHERE batchDate IS NOT NULL " +
                 "order by batchDate ASC";
+    console.log(sql);
     connection.query(sql, function(err, rows, fields) {
         if (err) throw err;
         getTransactions(rows, 0);
@@ -136,6 +138,8 @@ var getTransaction = function(trans, index, cb) {
                 shipToZip: res.transaction.shipTo.zip
             });
         }
+        record.submitTimeUTC = moment(record.submitTimeUTC, 'YYYY-MM-DDTHH:mm:ss.SSSZ').format('YYYY-MM-DD HH:mm:ss');
+        record.submitTimeLocal = moment(record.submitTimeLocal, 'YYYY-MM-DDTHH:mm:ss.SSS').format('YYYY-MM-DD HH:mm:ss');
         connection.query(sql, record, function(err, rows, fields) {
             if (err) throw err;
             /*
