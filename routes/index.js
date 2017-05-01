@@ -1053,7 +1053,8 @@
           },
           printCallback = function(type, pdf) {
               var badgeType = (type === "E") ? "ebadge" : "gbadge", 
-                  printer = ipp.Printer(printerUrl[badgeType][0].url),
+                  idx = underscore.random(0, (printerUrl[badgeType].length-1)),
+                  printer = ipp.Printer(printerUrl[badgeType][idx].url),
                   msg = {
                     "operation-attributes-tag": {
                       "requesting-user-name": "Station",
