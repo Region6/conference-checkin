@@ -1,1 +1,0 @@
-module.exports = require('./build/backbone.supermodel.amd')

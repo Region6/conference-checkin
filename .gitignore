@@ -11,3 +11,4 @@ badge*.svg
 badge*.pdf
 scripts/badges/
 .vscode/
+bower_components/

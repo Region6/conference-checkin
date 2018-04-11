@@ -4,70 +4,57 @@
     Include required packages
 =============================================================== */
 
- var session = require('express-session'),
-    cors = require('cors'),
-    crypto = require('crypto'),
-    bodyParser = require('body-parser'),
-    methodOverride = require('method-override'),
-    errorhandler = require('errorhandler'),
-    cookieParser = require('cookie-parser'),
-    favicon = require('serve-favicon'),
-    compression = require('compression'),
-    morgan = require('morgan'),
-    fs = require('fs'),
-    nconf = require('nconf'),
-    path = require('path'),
-    redis = require("redis"),
-    url = require('url'),
-    opts = {},
-    configFile, config;
+const session = require('express-session');
+const cors = require('cors');
+const crypto = require('crypto');
+const bodyParser = require('body-parser');
+const methodOverride = require('method-override');
+const errorhandler = require('errorhandler');
+const cookieParser = require('cookie-parser');
+const compression = require('compression');
+const morgan = require('morgan');
+const fs = require('fs');
+const nconf = require('nconf');
+const path = require('path');
+const redis = require("redis");
+const url = require('url');
+
+const config = require('./config');
+let opts = {};
+let configFile;
+let access_logfile;
 
 /*  ==============================================================
     Configuration
 =============================================================== */
 
 //used for session and password hashes
-var salt = '20sdkfjk23';
+let salt = '20sdkfjk23';
 
-fs.exists(__dirname + '/tmp', function (exists) {
+fs.exists(__dirname + '/tmp', (exists) => {
   if (!exists) {
-    fs.mkdir(__dirname + '/tmp', function (d) {
+    fs.mkdir(__dirname + '/tmp', (d) => {
       console.log("temp directory created");
     });
   }
 });
 
-if (process.argv[2]) {
-  if (fs.lstatSync(process.argv[2])) {
-    configFile = require(process.argv[2]);
-  } else {
-    configFile = process.cwd() + '/config/settings.json';
-  }
-} else {
-  configFile = process.cwd()+'/config/settings.json';
+if (config.log) {
+  access_logfile = fs.createWriteStream(config.log, {flags: 'a'});
 }
 
-config = nconf
-    .argv()
-    .env("__")
-    .file({ file: configFile });
-
-if (config.get("log")) {
-  var access_logfile = fs.createWriteStream(config.get("log"), {flags: 'a'});
-}
-
-if (config.get("ssl")) {
-  if (config.get("ssl:key")) {
-    opts.key = fs.readFileSync(config.get("ssl:key"));
+if (config.ssl) {
+  if (config.ssl.key) {
+    opts.key = fs.readFileSync(config.ssl.key);
   }
 
-  if (config.get("ssl:cert")) {
-    opts.cert = fs.readFileSync(config.get("ssl:cert"));
+  if (config.ssl.cert) {
+    opts.cert = fs.readFileSync(config.ssl.cert);
   }
 
-  if (config.get("ssl:ca")) {
+  if (config.ssl.ca) {
     opts.ca = [];
-    config.get("ssl:ca").forEach(function (ca, index, array) {
+    config.ssl.ca.forEach(function (ca, index, array) {
         opts.ca.push(fs.readFileSync(ca));
     });
   }
@@ -75,62 +62,62 @@ if (config.get("ssl")) {
   console.log("Express will listen: https");
 }
 
-if (config.get("salt")) {
-  salt = config.get("salt");
+if (config.salt) {
+  salt = config.salt;
 } else {
   salt = crypto.randomBytes(16).toString('base64');
 }
 
 //Session Conf
-if (config.get("redis")) {
-  redisConfig = config.get("redis");
+if (config.redis) {
+  redisConfig = config.redis;
 }
 
-var redisClient = redis.createClient(
-      redisConfig.url+'/'+redisConfig.db,
-      {
-        retry_strategy: function (options) {
-          console.log('redis retry');
-          if (options.error && options.error.code === 'ECONNREFUSED') {
-            // End reconnecting on a specific error and flush all commands with a individual error
-            return new Error('The server refused the connection');
-          }
-          if (options.total_retry_time > 1000 * 60 * 60) {
-            // End reconnecting after a specific timeout and flush all commands with a individual error
-            return new Error('Retry time exhausted');
-          }
-          if (options.attempt > 1000) {
-            // End reconnecting with built in error
-            return undefined;
-          }
-          // reconnect after
-          return Math.min(options.attempt * 100, 3000);
-        }
+const redisClient = redis.createClient(
+  redisConfig.url+'/'+redisConfig.db,
+  {
+    retry_strategy: (options) => {
+      console.log('redis retry');
+      if (options.error && options.error.code === 'ECONNREFUSED') {
+        // End reconnecting on a specific error and flush all commands with a individual error
+        return new Error('The server refused the connection');
       }
-    ),
-    RedisStore = require('connect-redis')(session),
-    allowCrossDomain = function(req, res, next) {
-      res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Methods', '*');
-      res.header('Access-Control-Allow-Headers', '*');
+      if (options.total_retry_time > 1000 * 60 * 60) {
+        // End reconnecting after a specific timeout and flush all commands with a individual error
+        return new Error('Retry time exhausted');
+      }
+      if (options.attempt > 1000) {
+        // End reconnecting with built in error
+        return undefined;
+      }
+      // reconnect after
+      return Math.min(options.attempt * 100, 3000);
+    }
+  }
+);
+const RedisStore = require('connect-redis')(session);
+const allowCrossDomain = (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', '*');
+  res.header('Access-Control-Allow-Headers', '*');
 
-      // intercept OPTIONS method
-      if ('OPTIONS' === req.method) {
-        res.send(200);
-      }
-      else {
-        next();
-      }
-    };
+  // intercept OPTIONS method
+  if ('OPTIONS' === req.method) {
+    res.send(200);
+  }
+  else {
+    next();
+  }
+};
 opts.secret = salt;
 opts.store = new RedisStore(redisConfig);
 
-var app = module.exports = require("sockpress").init(opts),
-    router = app.express.Router(),
-    apiRouter = app.express.Router();
+const app = module.exports = require("sockpress").init(opts);
+const router = app.express.Router();
+const apiRouter = app.express.Router();
 
 // Express Configuration
-var oneDay = 86400000;
+const oneDay = 86400000;
 app.use(require('express-domain-middleware'));
 app.use(compression());
 /**
@@ -139,7 +126,6 @@ if ("log" in config) {
 }
 **/
 app.use(cookieParser());
-//app.use(favicon(path.join(__dirname, 'assets','images','favicon.ico')));
 app.use(app.express.static(__dirname + '/public'));     // set the static files location
 app.use('/css', app.express.static(__dirname + '/public/css'));
 app.use('/js', app.express.static(__dirname + '/public/js'));
@@ -157,8 +143,8 @@ app.use(bodyParser.json({ type: 'application/vnd.api+json' })); // parse applica
 app.use(methodOverride('X-HTTP-Method-Override')); // override with the X-HTTP-Method-Override header in the request
 app.use(cors());
 
-var routes = require('./routes'),
-    ioEvents = require('./ioEvents');
+const routes = require('./routes');
+const ioEvents = require('./ioEvents');
 
 routes.setKey("configs", config);
 routes.initialize();
@@ -210,11 +196,11 @@ apiRouter.get('/offices', routes.offices);
 
 app.use('/api', apiRouter);
 
-app.use(function errorHandler(err, req, res, next) {
+app.use((err, req, res, next) => {
   console.log('error on request %d %s %s', process.domain.id, req.method, req.url);
   console.log(err.stack);
   res.send(500, "Something bad happened. :(");
-  if(err.domain) {
+  if (err.domain) {
     //you should think about gracefully stopping & respawning your server
     //since an unhandled error might put your application into an unknown state
     process.exit(0);
@@ -231,5 +217,5 @@ app.io.route('ready', ioEvents.connection);
 /*  ==============================================================
     Launch the server
 =============================================================== */
-var port = (config.get("port")) ? config.get("port") : 3001;
+const port = (config.port) ? config.port : 3001;
 app.listen(port);
