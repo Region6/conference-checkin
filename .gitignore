@@ -12,3 +12,4 @@ badge*.pdf
 scripts/badges/
 .vscode/
 bower_components/
+lib/
