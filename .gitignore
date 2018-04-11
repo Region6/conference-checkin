@@ -1,5 +1,5 @@
 node_modules/
-settings.json
+settings.js
 access.log
 public/
 public/js/vendor.js
