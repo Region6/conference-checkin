@@ -13,3 +13,4 @@ scripts/badges/
 .vscode/
 bower_components/
 lib/
+package-lock.json
