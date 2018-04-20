@@ -24,8 +24,7 @@ module.exports = {
     host: process.env.REDIS_PORT_6379_TCP_ADDR || process.env.REDIS_HOST || settings.redis.host || 'localhost',
     port: process.env.REDIS_PORT_6379_TCP_PORT || process.env.REDIS_PORT || settings.redis.port || 6379,
     db: process.env.REDIS_DB || settings.redis.db || 0,
-    url: process.env.REDIS_URL || settings.redis.url || 'redis://localhost',
-    url2: process.env.REDIS_URL2 || settings.redis.url2 || 'redis://localhost',
+    url: process.env.REDIS_REDIS_1_PORT_6379_TCP || process.env.REDIS_URL1 || settings.redis.url || `redis://${process.env.REDIS_PORT_6379_TCP_ADDR || settings.redis.host}:${process.env.REDIS_PORT_6379_TCP_PORT || settings.redis.port}`,
   },
   authorizenet: {
     id: process.env.AUTHORIZENET_ID || settings.authorizenet.id || 'authorizenet id',

@@ -129,7 +129,7 @@ exports.initialize = () => {
   const redisPort = opts.configs.redis.port || '6379';
   const redisAuth = opts.configs.redis.password || '';
 
-  const connectString = opts.configs.redis.url2;
+  const connectString = opts.configs.redis.url;
   bus = Bus.create({redis: [connectString]});
   bus.on('error', (err) => {
     console.log(err);

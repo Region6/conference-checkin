@@ -76,7 +76,7 @@ if (config.redis) {
 }
 
 const redisClient = redis.createClient(
-  redisConfig.url+'/'+redisConfig.db,
+  redisConfig.url+'/'+parseInt(redisConfig.db, 10),
   {
     retry_strategy: (options) => {
       console.log('redis retry');
