@@ -147,11 +147,9 @@ app.use(methodOverride('X-HTTP-Method-Override')); // override with the X-HTTP-M
 app.use(cors());
 
 const routes = require('./routes');
-const ioEvents = require('./ioEvents');
 
 routes.setKey("configs", config);
 routes.initialize();
-// ioEvents.initialize(config);
 
 /*  ==============================================================
     Routes
@@ -212,12 +210,6 @@ app.use((err, req, res, next) => {
   }
 });
 
-/*  ==============================================================
-    Socket.IO Routes
-=============================================================== */
-
-routes.setKey("io", app.io);
-//app.io.route('ready', ioEvents.connection);
 
 /*  ==============================================================
     Launch the server

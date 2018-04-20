@@ -29,8 +29,7 @@ const font = {
   }
 };
 const knex = require('knex');
-const svgHeader = fs.readFileSync("./header.svg", "utf8");
-const receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8");
+const svgHeader = fs.readFileSync("./stuff/header.svg", "utf8");
 const Rsvg = require('librsvg-prebuilt').Rsvg;
 const Registrants = require("node-registrants");
 const shortid = require('shortid');
