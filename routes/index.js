@@ -14,14 +14,20 @@ const underscore = require('lodash');
 const pdf417 = require('pdf417');
 const ipp = require('ipp');
 const handlebars = require('handlebars');
+const ApiContracts = require('authorizenet').APIContracts;
+const ApiControllers = require('authorizenet').APIControllers;
+const SDKConstants = require('authorizenet').Constants;
+const helpers = require('handlebars-helpers')({
+  handlebars: handlebars
+});
 const moment = require('moment-timezone');
 const json2csv = require('json2csv');
-const AuthorizeRequest = require('auth-net-request');
 const request = require('request');
 const parser = require('xml2json');
 const parseString = require('xml2js').parseString;
 const pdfjs = require('pdfjs');
 const Bus = require('busmq');
+const { map, props, mapSeries } = require('awaity');
 const notoSansRegular = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans.ttf'));
 const notoSansBold = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans-Bold.ttf'));
 const font = {
@@ -30,12 +36,15 @@ const font = {
     bold: new pdfjs.Font(notoSansBold)
   }
 };
+const knex = require('knex');
 const Sequelize = require("sequelize");
 const svgHeader = fs.readFileSync("./header.svg", "utf8");
 const receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8");
 const Rsvg = require('librsvg-prebuilt').Rsvg;
 const Registrants = require("node-registrants");
 const shortid = require('shortid');
+
+const merchantAuthenticationType = new ApiContracts.MerchantAuthenticationType();
 
 let registrants;
 let nextBadgePrinter = 0;
@@ -50,11 +59,18 @@ let client = null;
 let transport = null;
 let acl = null;
 let db = {};
+let knexDb;
 let reconnectTries = 0;
 let models = {};
 let bus;
 let queue;
 let channel;
+const messageTemplate = {
+  status: 'success',
+  message: {
+    response: null
+  }
+};
 
 const getPrinter = (callback) => {
   const addPrinter = (item, cb) => {
@@ -64,7 +80,9 @@ const getPrinter = (callback) => {
   };
   models.Printers.findAll(
     {
-      order: 'type ASC'
+      order: [
+        ['type', 'ASC']
+      ]
     }
   )
   .then(
@@ -101,7 +119,7 @@ const sendMessage = (type, payload) => {
 **/
 handlebars.registerHelper('short_string', (context, options) => {
   //console.log(options);
-  var maxLength = options.hash.length || 100,
+  const maxLength = options.hash.length || 100,
     trailingString = options.hash.trailing || '';
   if (typeof context !== "undefined") {
     if (context.length > maxLength) {
@@ -125,6 +143,21 @@ exports.initialize = () => {
     opts.configs.mysql.password,
     opts.configs.mysql,
   );
+
+  merchantAuthenticationType.setName(opts.configs.authorizenet.id);
+  merchantAuthenticationType.setTransactionKey(opts.configs.authorizenet.key);
+
+  knexDb = knex({
+    client: 'mysql2',
+    connection: {
+      host : opts.configs.mysql.host || "localhost",
+      user : opts.configs.mysql.username,
+      password : opts.configs.mysql.password,
+      database : opts.configs.mysql.database,
+      port: opts.configs.mysql.port || 3306,
+    },
+    debug: ['ComQueryPacket'],
+  });
   
   registrants = Registrants.init({
     "host": opts.configs.mysql.host || "localhost",
@@ -211,7 +244,7 @@ exports.initialize = () => {
   });
   bus.connect();
 
-  models.Events = db.checkin.define('event', {
+  models.Events = db.checkin.define('events', {
     slabId:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
     local_slabId :              { type: Sequelize.INTEGER },
     eventId:              { type: Sequelize.STRING(36) },
@@ -537,7 +570,7 @@ exports.initialize = () => {
     siteId:               { type: Sequelize.STRING(255) }
   });
   
-  models.Badges = db.checkin.define('event_badge', {
+  models.Badges = db.checkin.define('event_badges', {
     id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
     eventId :               { type: Sequelize.STRING(36) },
     template :              { type: Sequelize.TEXT }
@@ -585,12 +618,12 @@ exports.initialize = () => {
   );
 };
 
-var processGroupMembers = (extra, members, registrants, index, cb) => {
+const processGroupMembers = (extra, members, registrants, index, cb) => {
     let sql = "";
     let member = members[index];
     let ignoreNames = ["firstname", "lastname"];
     index = index || 0;
-    let vars = [ 
+    let consts = [ 
       member.event_id,
       parseInt(member.groupUserId),
       member.event_id,
@@ -651,10 +684,10 @@ var processGroupMembers = (extra, members, registrants, index, cb) => {
           " SELECT * FROM event_fields WHERE event_id = ? ORDER BY ordering ASC;";
     if (extra) {
       sql += " SELECT * FROM transactions WHERE invoiceNumber = ? ORDER BY submitTimeUTC ASC;";
-      vars.push(member.billerConfirm);
+      consts.push(member.billerConfirm);
     }
     //console.log(sql);
-    connection.query(sql, vars, (err, results) => {
+    connection.query(sql, consts, (err, results) => {
         if (err) { throw err; }
         if (results[0]) {
           const ba = [];
@@ -779,121 +812,131 @@ var processGroupMembers = (extra, members, registrants, index, cb) => {
 
 };
 
-const createBadge = (registrant, callback) => {
+const createBadge = async (registrant, type) => {
   //console.log("Creating Badge #",index);
   console.log(__dirname);
   let pageBuilder = null;
   let pdfData = "";
-  const exhibitorFields = ["firstname", "lastname", "email", "phone", "title"];
-
-  async.waterfall([
-      (cb) => {
-        models.Badges.find({
-          where: {
-            eventId: registrant.event_id,
-          }
-        })
-        .then(
-          (badge) => {
-            cb(null, badge.template.toString());
-          }
-        );
-      },
-      (template, cb) => {
-        // console.log(template);
-        pageBuilder = handlebars.compile(template);
-        let confirmation = (typeof registrant.confirmation !== "undefined") ? registrant.confirmation : registrant.confirmNum;
-        let code = registrant.registrantId+"|"+confirmation;
-        registrant.badgeFields.forEach(function(field, index) {
-            code += "|" + registrant[field];
-        });
-        console.log(code);
-        // var svgBarcode = qr.imageSync(code, { type: 'svg', ec_level: 'L', margin: 0, size: 2 });
-
-        let barcode = pdf417.barcode(code, 5);
-        let y = 0;
-        let bw = 1.25;
-        let bh = 0.75;
-        let rect = 32000;
-        let blocks = [];
-        let svgBarcode = "";
-        const iterateCols = (r, cb) => {
-          let x = 0;
-          async.timesSeries(
-            barcode.num_cols,
-            (c, next) => {
-              let block = "";
-              if (barcode.bcode[r][c] == 1) {
-                block = '<rect id="rect'+rect+'" height="'+bh+'" width="'+bw+'" y="'+y+'" x="'+x+'" />';
-              }
-              x += bw;
-              next(null, block);
-            },
-            (err, blks) => {
-              cb(blks);
-            }
-          );
-        };
-        const makeSvg = (svgbcode) => {
-          svgBarcode = '<g id="barcode" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(64,320)">'+svgbcode+'</g>';
-          registrant.barcode = svgBarcode;
-          registrant.fields.id = registrant.registrantId;
-          registrant.paddedRegId = registrant.registrantId;
-          let svg = pageBuilder(registrant);
-          let shiftG = '<g id="shiftBox" transform="translate(-15,-15)">';
-          svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + svgHeader + svg + "</svg>";
-
-          fs.writeFile('badge.'+registrant.registrantId+".svg", svg, (err) => {
-            if (err) throw err;
-            console.log('It\'s saved!');
-          });
-    
-          var svgPdf = new Rsvg(svg);
-          svgPdf.on('load', () => {
-            var data = svgPdf.render({
-                  format: 'pdf',
-                  height: 792,
-                  width: 612
-                }).data;
-            cb(null, data);
-          });
-        };
-        async.timesSeries(
-          barcode.num_rows,
-          (n, next) => {
-            iterateCols(n, (blks) => {
-              y += bh;
-              setImmediate(() => {
-                next(null, blks.join(""));
-              });
-            });
-          },
-          (err, blks) => {
-            makeSvg(blks.join(""));
-          }
-        );
-      }
-  ], (err, pdf) => {
-    callback(registrant.event.reg_type, pdf);
+  const svgToPdf = (svg) => {
+    return new Promise(resolve => {
+      const svgPdf = new Rsvg(svg);
+      svgPdf.on('load', () => {
+        const data = svgPdf.render({
+          format: 'pdf',
+          height: 792,
+          width: 612
+        }).data;
+        resolve(data);
+      });
+    });
+  }
+  const badgeFields = [
+    "confirmation",
+    "firstname",
+    "lastname",
+    "title",
+    "email",
+    "phone",
+    "organization",
+    "address",
+    "address2",
+    "city",
+    "state",
+    "zip"
+  ];
+  const badge = await models.Badges.find({
+    where: {
+      eventId: registrant.eventId,
+    }
   });
+  let template = badge.template.toString();
+
+  pageBuilder = handlebars.compile(template);
+  let code = `${registrant.paddedRegId}`;
+  badgeFields.forEach(
+    (field, index) => {
+      code += `|${registrant[field]}`;
+    }
+  );
+  console.log(code);
+
+  let barcode = pdf417.barcode(code, 5);
+  let y = 0;
+  const bw = 1.25;
+  const bh = 0.75;
+  let rect = 32000;
+  let blocks = [];
+  let svgBarcode = "";
+
+  const badgeStr = await mapSeries(
+    barcode.bcode,
+    async (row) => {
+      y += bh;
+      let x = 0;
+      let colStr = await mapSeries(
+        row,
+        async (col) => {
+          let block = "";
+          if (parseInt(col, 10) === 1) {
+            block = `<rect id="rect${rect}" height="${bh}" width="${bw}" y="${y}" x="${x}" />`;
+          }
+          x += bw;
+          return block;
+        }
+      );
+      return colStr.join("");
+    } 
+  );
+
+  svgBarcode = `<g id="barcode" style="fill:#000000;stroke:none" x="23.543152" y="295" transform="translate(64,320)">${badgeStr.join('')}</g>`;
+  registrant.barcode = svgBarcode;
+  // registrant.fields.id = registrant.registrantId;
+  // registrant.paddedRegId = registrant.registrantId;
+  let svg = pageBuilder(registrant);
+  let shiftG = '<g id="shiftBox" transform="translate(-15,-15)">';
+  svg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>${svgHeader}${svg}</svg>`;
+
+  fs.writeFile(`badge.${registrant.registrantId}.svg`, svg, (err) => {
+    if (err) throw err;
+  });
+
+  if (type === 'svg') {
+    svg = new Buffer(svg).toString('base64');  
+    retVal = {
+      id: registrant.paddedRegId,
+      mime: 'image/svg+xml',
+      type: registrant.event.reg_type,
+      svg,
+    };
+  } else {
+    const pdf = await svgToPdf(svg);
+    retVal = {
+      id: registrant.paddedRegId,
+      mime: 'application/pdf',
+      type: registrant.event.reg_type,
+      pdf: pdf.toString('base64'),
+    };
+  }
+
+  return retVal;
 };
 
-var saveTransaction = (res, callback) => {
+const saveTransaction = (res, callback) => {
     let sql = "INSERT INTO transactions SET ?";
-    let vars = underscore.clone(res.transaction);
-    delete vars.batch;
-    delete vars.payment;
-    delete vars.order;
-    delete vars.billTo;
-    delete vars.shipTo;
-    delete vars.recurringBilling;
-    delete vars.customer;
-    delete vars.customerIP;
-    vars = underscore.extend(vars, res.transaction.batch);
-    vars = underscore.extend(vars, res.transaction.order);
-    vars = underscore.extend(vars, res.transaction.payment.creditCard);
-    vars = underscore.extend(vars, res.transaction.customer);
-    vars = underscore.extend(vars, {
+    let consts = underscore.clone(res.transaction);
+    delete consts.batch;
+    delete consts.payment;
+    delete consts.order;
+    delete consts.billTo;
+    delete consts.shipTo;
+    delete consts.recurringBilling;
+    delete consts.customer;
+    delete consts.customerIP;
+    consts = underscore.extend(consts, res.transaction.batch);
+    consts = underscore.extend(consts, res.transaction.order);
+    consts = underscore.extend(consts, res.transaction.payment.creditCard);
+    consts = underscore.extend(consts, res.transaction.customer);
+    consts = underscore.extend(consts, {
       billToFirstName: res.transaction.billTo.firstName,
       billToLastName: res.transaction.billTo.lastName,
       billToAddress: res.transaction.billTo.address,
@@ -903,7 +946,7 @@ var saveTransaction = (res, callback) => {
       billToPhoneNumber: res.transaction.billTo.phoneNumber
     });
     if ("shipTo" in res.transaction) {
-      vars = underscore.extend(vars, {
+      consts = underscore.extend(consts, {
         shipToFirstName: res.transaction.shipTo.firstName,
         shipToLastName: res.transaction.shipTo.lastName,
         shipToAddress: res.transaction.shipTo.address,
@@ -913,9 +956,9 @@ var saveTransaction = (res, callback) => {
       });
     }
     /** update/insert */
-    connection.query(sql, vars, (err, result) => {
+    connection.query(sql, consts, (err, result) => {
       if (err) { throw err; }
-      sendMessage('saveTransaction', vars);
+      sendMessage('saveTransaction', consts);
       callback({dbResult: result, creditResult: res});
     });
 };
@@ -925,86 +968,48 @@ var saveTransaction = (res, callback) => {
 *************/
 
 exports.index = (req, res) => {
-    const sid = (typeof req.session !== "undefined") ? req.session.id : null;
-    //Regenerates the JS/template file
-    //if (req.url.indexOf('/bundle') === 0) { bundle(); }
-
-    //Don't process requests for API endpoints
-    if (req.url.indexOf('/api') === 0 ) { return next(); }
-    console.log("[index] session id:", sid);
-
-    let init = "$(document).ready(() => { App.initialize(); });";
-    init = "$(document).ready(() => { App.uid = '" + sid + "'; App.initialize(); });";
-    fs.readFile(__dirname + '/../assets/templates/index.html', 'utf8', (error, content) => {
-        if (error) { console.log(error); }
-        content = content.replace("{{init}}", init);
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.write(content, 'utf-8');
-        res.end('\n');
-    });
+  const content = `<html><body>api server</body>`;
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.write(content, 'utf-8');
+  res.end('\n');
 };
 
 //Return documents
-exports.registrants = (req, res) => {
-    let category = req.query.category;
-    let cat = [];
-    let search = req.query.search;
-    let page = req.query.page;
-    let limit = req.query.per_page;
-    const callback = (registrants) => {
-      //if (err) console.log(err);
-      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-      res.writeHead(200, { 'Content-type': 'application/json' });
-      res.write(JSON.stringify(registrants), 'utf-8');
-      res.end('\n');
-    };
+exports.registrants = async (req, res) => {
+  let filters = [];
+  let page = 0;
+  let limit = 50;
 
-    //console.log("[registrants] session id:", req.session.id);
-    /**
-    if (typeof req.session.user_id === 'undefined') {
-        res.writeHead(401, { 'Content-type': 'text/html' });
-        res.end();
-        return;
-    }
-    **/
-    if (category === "name") {
-      cat = ["lastname", "firstname"];
-    } else if (category === "company") {
-      cat = ["company"];
-    } else if (category === "confirmation") {
-      cat = ["confirmation"];
-    } else if (category === "registrantid") {
-      if (search.indexOf("-") !== -1) {
-          search = search.replace("-", "");
-      }
-      cat = ["registrantid"];
-    } else {
-      cat = [category];
-    }
+  const results = await registrants.searchAttendees2(
+    filters,
+    page,
+    limit
+  );
 
-    registrants.searchAttendees(
-      cat,
-      search,
-      page,
-      limit,
-      null,
-      callback
-    );
-
-
+  sendBack(res, results, 200);
 };
 
-exports.genBadge = (req, res) =>  {
+exports.searchRegistrants = async (req, res) => {
+  let filters = req.body.filters;
+  let page = req.body.page;
+  let limit = req.body.limit;
+
+  const results = await registrants.searchAttendees2(
+    filters,
+    page,
+    limit
+  );
+
+  sendBack(res, results, 200);
+};
+
+exports.genBadge = async (req, res) =>  {
   let id = req.params.id;
   let action = req.params.action;
+  let type = (action === 'print') ? 'svg' : 'pdf';
   let resource = res;
-  const downloadCallback = (type, pdf) => {
-    let data = {id: id, pdf: pdf.toString('base64')};
-    resource.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-    resource.writeHead(200, { 'Content-type': 'application/json' });
-    resource.write(JSON.stringify(data), 'utf-8');
-    resource.end('\n');
-  };
+  let payload;
+
   const printCallback = (type, pdf) => {
     const badgeType = (type === "E") ? "ebadge" : "gbadge";
     const idx = underscore.random(0, (printerUrl[badgeType].length-1));
@@ -1028,24 +1033,21 @@ exports.genBadge = (req, res) =>  {
       console.log(res);
     });
   };
-  const registrantCallback = (registrants) => {
-    if (action === "print") {
-      createBadge(registrants[0], printCallback);
-    } else if (action === "download") {
-      createBadge(registrants[0], downloadCallback);
-    }
-  };
+  const filters = [{
+    columnName: 'displayId',
+    value: id,
+  }];
+  const results = await registrants.searchAttendees2(
+    filters,
+    0,
+    1,
+  );
 
-  /**
-  if (typeof req.session.user_id === 'undefined') {
-      res.writeHead(401, { 'Content-type': 'text/html' });
-      res.end();
-      return;
+  if (results.length) {
+    payload = await createBadge(results[0], type);
   }
-  **/
-  console.log("[genBadge] session id:", null);
-  console.log("Badge action:", action);
-  registrants.searchAttendees(["registrantid"], id, 0, 100, false, registrantCallback);
+
+  sendBack(res, payload, 200);
 };
 
 exports.genReceipt = (req, res) =>  {
@@ -1205,7 +1207,7 @@ exports.genReceipt = (req, res) =>  {
     lineItems();
     pdf = doc.render();
     if (action === "download") {
-      var data = new Buffer(pdf.toString()).toString("base64");
+      const data = new Buffer(pdf.toString()).toString("base64");
       downloadCallback(data);
     } else {
       run(
@@ -1222,230 +1224,284 @@ exports.genReceipt = (req, res) =>  {
   registrants.searchAttendees(["registrantid"], id, 0, 100, false, registrantCallback);
 };
 
-exports.getRegistrant = (req, res) =>  {
+exports.getRegistrant = async (req, res) =>  {
   const id = req.params.id;
-  const callback = (registrant) => {
-    //if (err) console.log(err);
-    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-    res.writeHead(200, { 'Content-type': 'application/json' });
-    res.write(JSON.stringify(registrant), 'utf-8');
-    res.end('\n');
-  };
+  const registrant = await registrants.searchAttendees2(
+    [{
+      columnName: 'displayId',
+      value: id,
+    }],
+    0,
+    1
+  );
 
-  registrants.searchAttendees(["registrantid"], id, 0, 100, false, callback);
+  sendBack(res, registrant, 200);
 };
 
-exports.updateRegistrantValues = (req, res) =>  {
+exports.updateRegistrant = async (req, res) =>  {
   const id = req.params.id;
   const registrantId = req.body.registrantId;
   let sid = null;
   const type = req.body.type;
   const values = req.body;
-  
-  const callback = function(registrant) {
-    sendBack(res, registrant, 200);
-  };
+  let registrant;
 
-  sendMessage('updateRegistrantValues', {
-    type,
-    registrantId,
-    id,
-    values
-  });
-  _updateRegistrantValues(type, id, registrantId, values, false, callback);
-};
+  sendMessage(
+    'updateRegistrantValues', 
+    {
+      type,
+      registrantId,
+      id,
+      values
+    }
+  );
 
-const _updateRegistrantValues = (type, id, registrantId, values, remote, callback) => {
   if (type === "status") {
-    /** update/insert */
-    registrants.updateAttendee(
+    registrant = await registrants.updateAttendee(
       registrantId,
-      values,
-      (registrant) => {
-        //if (err) throw err;
-        console.log(values.fields);
-        if ("fields" in values && "attend" in values.fields) {
-          if (values.attend) {
-            logAction(null, "registrant", id, "attend", "Registrant checked in");
-            updateCheckedIn();
-          } else {
-            logAction(null, "registrant", id, "attend", "Registrant checked out");
-            updateCheckedIn();
-          }
-        }
-        if (callback) callback(registrant);
-      }
+      values
     );
+    if ("fields" in values && "attend" in values.fields) {
+      if (values.attend) {
+        logAction(null, "registrant", id, "attend", "Registrant checked in");
+        updateCheckedIn();
+      } else {
+        logAction(null, "registrant", id, "attend", "Registrant checked out");
+        updateCheckedIn();
+      }
+    }
   } else {
-    /** update/insert */
-    registrants.updateAttendeeValues(
+    registrant = await registrants.updateAttendee(
       registrantId,
-      values,
-      (registrant) => {
-        logAction(null, "registrant", id, "updated", "Registrant updated");
-        if (callback) callback(registrant);
-      }
+      values
     );
+    logAction(null, "registrant", id, "updated", "Registrant updated");
   }
+
+  sendBack(res, registrant, 200);
 };
 
-exports.updateRegistrant = (req, res) =>  {
-  let id = req.params.id;
-  let sid = req.session.id;
+exports.addRegistrant = async (req, res) =>  {
   let values = req.body;
-  let sql = "UPDATE group_members SET ? WHERE id = "+id;
-
-  console.log("[updateRegistrant] session id:", req.session.id);
-    //console.log(values);
-
+  sendMessage('addRegistrant', { values });
+  const registrant = await registrants.initRegistrant(values);
+  sendBack(res, registrant, 200);
 };
 
-exports.addRegistrant = (req, res) =>  {
+exports.getExhibitorCompanies = async (req, res) =>  {
+  let search = req.query.search;
 
-  var values = req.body,
-      retCallback = (registrants) => {
-          //if (err) console.log(err);
-          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-          res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(registrants), 'utf-8');
-          res.end('\n');
-      };
-  /** update/insert */
-  sendMessage('addRegistrant', {values});
-  registrants.initRegistrant(values, retCallback);
-};
-
-exports.getExhibitorCompanies = (req, res) =>  {
-
-  var search = req.query.search,
-      retCallback = function(companies) {
-          //if (err) console.log(err);
-          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-          res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(companies), 'utf-8');
-          res.end('\n');
-      };
-
-  registrants.getExhibitorCompanies(search, retCallback);
+  const companies = await registrants.getExhibitorCompanies(search);
+  sendBack(res, companies, 200);
 };
 
 exports.getFields = (req, res) =>  {
-  var type = req.params.type,
-      retCallback = function(fields) {
-          //if (err) console.log(err);
-          res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-          res.writeHead(200, { 'Content-type': 'application/json' });
-          res.write(JSON.stringify(fields), 'utf-8');
-          res.end('\n');
-      };
+  let type = req.params.type;
 
-  registrants.getFields(type, retCallback);
+  const fields = registrants.getFields(type);
+  sendBack(res, fields, 200);
 };
 
-exports.getOnsiteEvents = (req, res) =>  {
-  models.Events.findAll(
-    {
-      order: 'slabId ASC'
-    }
-  )
-  .then(
-    (events) => {
-      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-      res.writeHead(200, { 'Content-type': 'application/json' });
-      res.write(JSON.stringify(events), 'utf-8');
-      res.end('\n');
-    }
-  );
+exports.getOnsiteEvents = async (req, res) =>  {
+  const records = await knexDb.from('events')
+    .orderBy('id', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
+
+  sendBack(res, records, 200);
 };
 
-exports.getEvents = (req, res) =>  {
-  models.Events.findAll(
-    {
-      order: 'slabId ASC'
-    }
-  )
-  .then(
-    (events) => {
-      let types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'];
-      let fields = {};
-      let fieldset = [];
-      const getFields = (event, callback) => {
-        models.CheckinEventFields.findAll(
-          {
-            where: {
-              event_id: event.eventId,
-              showed: 3
-            },
-            order: 'ordering ASC'
-          }
-        ).then(
-          (evFields) => {
-            fields = {};
-            fieldset = [];
-            async.each(evFields, makeFieldset, (err) => {
-              //console.log(fields);
-              event.fields = fields;
-              event.fieldset = fieldset;
-              callback(null, event);
-            });
-          }
-        );
-      };
-      const makeFieldset = function(field, cb) {
-        let schemaRow = {
-          "title": field.label,
-          "type": types[field.type]
-        };
-        if (field.values) {
-            var values = field.values.split("|");
-            schemaRow.options = values;
-        }
-        fields[field.name] = schemaRow;
-        fieldset.push(field.name);
-        cb(null);
-      };
+exports.getEvents = async (req, res) =>  {
+  const events = await knexDb.from('events')
+    .orderBy('id', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
 
-      async.map(events, getFields, function(err, results){
-        //console.log(results);
-        res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-        res.writeHead(200, { 'Content-type': 'application/json' });
-        res.write(JSON.stringify(results), 'utf-8');
-        res.end('\n');
-      });
-    }
-  );
+  sendBack(res, events, 200);
 };
 
-exports.getEventFields = (req, res) =>  {
+exports.getEventFields = async (req, res) =>  {
   const sid = req.session.id;
   const id = req.params.id;
 
-  console.log("[getEventField] session id:", req.session.id);
-  models.CheckinEventFields.findAll({
-    where: {
-      event_id: id
-    }
-  }).then(
-    (fields) => {
-      res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-      res.writeHead(200, { 'Content-type': 'application/json' });
-      res.write(JSON.stringify(fields), 'utf-8');
-      res.end('\n');
-    }
-  );
+  const records = await knexDb.from('eventFields')
+    .where({ event_id: id })
+    .catch(e => console.log('db', 'database error', e));
+
+  sendBack(res, records, 200);
 };
 
-exports.makePayment = (req, res) =>  {
-  const values = req.body;
-  const successCallback = function(status, result) {
-    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-    res.writeHead(status, { 'Content-type': 'application/json' });
-    res.write(JSON.stringify(result), 'utf-8');
-    res.end('\n');
-  };
-  //sendMessage('makePayment', {values});
-  _makePayment(values, false, successCallback);
+const authorizeTransaction = (request) => {
+  return new Promise((resolve, reject) => {
+    let retVal;
+    const ctrl = new ApiControllers.CreateTransactionController(request.getJSON());
+    if (!opts.configs.authorizenet.sandbox) {
+      ctrl.setEnvironment(SDKConstants.endpoint.production);
+    }
+
+    ctrl.execute(() => {
+      const apiResponse = ctrl.getResponse();
+      const response = new ApiContracts.CreateTransactionResponse(apiResponse);
+      if (
+        response != null 
+        && response.getMessages().getResultCode() == ApiContracts.MessageTypeEnum.OK
+        && response.getTransactionResponse().getMessages() != null
+      ) {
+        resolve(response.getTransactionResponse());
+      } else {
+        if (response.getTransactionResponse() != null && response.getTransactionResponse().getErrors() != null) {
+          reject(response.getTransactionResponse().getErrors().getError());
+				}
+				else {
+          reject(response.getMessages().getMessage());
+				}
+      }
+    });
+  });
 };
+
+const getTransaction = (trans) => {
+  return new Promise((resolve, reject) => {
+    let retVal;
+    const getRequest = new ApiContracts.GetTransactionDetailsRequest();
+	  getRequest.setMerchantAuthentication(merchantAuthenticationType);
+	  getRequest.setTransId(trans.transId);
+	  const ctrl = new ApiControllers.GetTransactionDetailsController(getRequest.getJSON());
+    if (!opts.configs.authorizenet.sandbox) {
+      ctrl.setEnvironment(SDKConstants.endpoint.production);
+    }
+    ctrl.execute(() => {
+      const apiResponse = ctrl.getResponse();
+      const response = new ApiContracts.GetTransactionDetailsResponse(apiResponse);
+      if (
+        response != null 
+        && response.getMessages().getResultCode() == ApiContracts.MessageTypeEnum.OK
+      ) {
+        retVal = response.getTransaction();
+        resolve(retVal);
+      } else {
+        reject(response.getMessages().getMessage())
+      }
+    });
+  });
+}
+
+const updateTransaction = async (transaction) => {
+  let results;
+  const record = {
+    transId: transaction.transId,
+    submitTimeUTC: moment.tz(transaction.submitTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss'),
+    submitTimeLocal: moment(transaction.submitTimeLocal).format('YYYY-MM-DD HH:mm:ss'),
+    transactionType: transaction.transactionType,
+    transactionStatus: transaction.transactionStatus,
+    responseCode: transaction.responseCode,
+    responseReasonCode: transaction.responseReasonCode,
+    responseReasonDescription: transaction.responseReasonDescription,
+    authCode: transaction.authCode,
+    AVSResponse: transaction.AVSResponse,
+    cardCodeResponse: transaction.cardCodeResponse,
+    batchId: transaction.batch.batchId,
+    settlementTimeUTC: moment.tz(transaction.batch.settlementTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss'),
+    settlementTimeLocal: moment(transaction.batch.settlementTimeLocal).format('YYYY-MM-DD HH:mm:ss'),
+    invoiceNumber: transaction.order.invoiceNumber,
+    customerId: ('id' in transaction.customer) ? transaction.customer.id : null,
+    authAmount: transaction.authAmount,
+    settleAmount: transaction.settleAmount,
+    cardNumber: (transaction.payment && transaction.payment.creditCard) ? transaction.payment.creditCard.cardNumber : null,
+    cardType: (transaction.payment && transaction.payment.creditCard) ? transaction.payment.creditCard.cardType : null,
+    email: transaction.customer.email,
+  };
+
+  const existTransaction = await dbKnex('transactions')
+    .where({
+      transId: record.transId,
+    })
+    .catch(e => console.log('db', 'database error', e));
+  if (existTransaction.length) {
+    results = await dbKnex('transactions')
+      .where({ id: existTransaction[0].id })
+      .update(record)
+      .then(
+        data => dbKnex('transactions').where({ id: existTransaction[0].id }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  } else {
+    results = await dbKnex('transactions')
+      .insert(record)
+      .then(
+        data => dbKnex('transactions').where({ id: data[0] }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  }
+
+  return results;
+}
+
+exports.makePayment = async (req, res) =>  {
+  const values = req.body;
+  let data;
+  let statusCode = 200;
+  if (values.type === "check") {
+    /** update/insert */
+    const results = await registrants.saveCheckTransaction(values);
+  } else if (values.type !== "check") {
+    var paymentType = new ApiContracts.PaymentType();
+    if (values.transaction.track && values.transaction.track.length) {
+      const trackData = new ApiContracts.CreditCardTrackType();
+      trackData.setTrack1(values.transaction.track[0]);
+      trackData.setTrack2(values.transaction.track[1]);
+      paymentType.setTrackData(trackData);
+      /*
+      transaction.transactionRequest.retail = {
+        marketType: 2,
+        deviceType: 5
+      };
+      */
+    } else {
+      const creditCard = new ApiContracts.CreditCardType();
+      creditCard.setCardNumber(values.transaction.cardNumber.replace(/\s+/g, ''));
+      const expDate = values.transaction.expirationDate.replace(/\s+/g, '').split('/');
+      creditCard.setExpirationDate(`20${expDate[1]}-${expDate[0]}`);
+      // Set the token specific info
+      creditCard.setCardCode(values.transaction.security.replace(/\s+/g, ''));
+      paymentType.setCreditCard(creditCard);
+    }
+
+    const orderDetails = new ApiContracts.OrderType();
+    orderDetails.setInvoiceNumber(values.registrant.confirmation);
+
+    const billTo = new ApiContracts.CustomerAddressType();
+    billTo.setFirstName(values.registrant.firstname);
+    billTo.setLastName(values.registrant.lastname);
+
+    const customer = new ApiContracts.CustomerType();
+    customer.setType(ApiContracts.CustomerTypeEnum.INDIVIDUAL);
+		customer.setId(values.registrant.confirmation);
+		customer.setEmail(values.registrant.email);
+
+    const transactionRequestType = new ApiContracts.TransactionRequestType();
+    transactionRequestType.setTransactionType(ApiContracts.TransactionTypeEnum.AUTHCAPTURETRANSACTION);
+    transactionRequestType.setPayment(paymentType);
+    transactionRequestType.setAmount(values.transaction.amount);
+    transactionRequestType.setOrder(orderDetails);
+    transactionRequestType.setBillTo(billTo);
+    transactionRequestType.setCustomer(customer);
+
+    const createRequest = new ApiContracts.CreateTransactionRequest();
+    createRequest.setMerchantAuthentication(merchantAuthenticationType);
+    createRequest.setTransactionRequest(transactionRequestType);
+    try {
+      const transaction = await authorizeTransaction(createRequest);
+      const details = await getTransaction(transaction);
+      if (details) {
+        const results = await updateTransaction(details);
+        data = results;
+      }
+    } catch(e) {
+      data = e;
+      statusCode = 500;
+    }
+  }
+  sendBack(res, data, statusCode);
+}
 
 const _makePayment = (values, remote, callback) => {
   const Request = new AuthorizeRequest({
@@ -1533,7 +1589,7 @@ const _makePayment = (values, remote, callback) => {
         },
         (results, cback) => {
 
-          var details = {
+          let details = {
             transId: results.transactionResponse.transId
           };
 
@@ -1580,116 +1636,105 @@ const _makePayment = (values, remote, callback) => {
   }
 };
 
-exports.getNumberCheckedIn = (req, res) =>  {
-  registrants.getCheckedInCount((count) => {
-    res.setHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store');
-    res.writeHead(200, { 'Content-type': 'application/json' });
-    res.write(JSON.stringify({"checkedIn": count}), 'utf-8');
-    res.end('\n');
-  });
+exports.getNumberCheckedIn = async (req, res) =>  {
+  const count = await registrants.getCheckedInCount();
+  sendBack(res, count, 200);
 };
 
-exports.downloadCheckedInAttendees = (req, res) =>  {
+exports.downloadCheckedInAttendees = async (req, res) =>  {
   
-  registrants.searchAttendees(
-    ['attend'],
+  const attendees = await registrants.searchAttendees2(
+    [{
+      columnName: 'attend',
+      value: 1,
+    }],
     null,
-    1,
     null,
-    null,
-    (attendees) => {
-      console.log(attendees[0]);
-      json2csv(
-        {
-          data: attendees, 
-          fields: [
-            'paddedRegId', 
-            'confirmation', 
-            'firstname',
-            'lastname',
-            'title',
-            'email',
-            'phone',
-            'company',
-            'address',
-            'address2',
-            'city',
-            'state',
-            'zipcode',
-            'siteid'
-          ]
-        }, 
-        (err, csv) => {
-          res.writeHead(200, { 'Content-Type': 'text/csv' });
-          res.write(csv, 'utf-8');
-          res.end('\n');
-        }
-      );
-    }
   );
-};
-
-exports.findSiteId = (req, res) =>  {
-  const query = req.query.search;
-  models.Sites
-  .findAll({ where: ["siteId LIKE ?", "%"+query+"%"] })
-  .then(
-    (siteids) => {
-      sendBack(res, siteids, 200);
-    }
-  );
-};
-
-exports.findVotingSiteId = (req, res) =>  {
-  const query = req.query.search;
-  models.VotingSites
-  .findAll({ where: ["siteId LIKE ?", "%"+query+"%"] })
-  .then(
-    (siteids) => {
-      sendBack(res, siteids, 200);
-    }
-  );
-};
-
-exports.findCompany = (req, res) =>  {
-  const query = req.query.search;
-  models.Sites
-  .findAll({ where: ["company LIKE ?", query+"%"] })
-  .then(
-    (siteids) => {
-      sendBack(res, siteids, 200);
-    }
-  );
-};
-
-exports.findVotingSites = (req, res) =>  {
-  const query = req.params.query;
-  models.VotingSites
-  .findAll({ where: ["company LIKE ?", query+"%"] })
-  .then(
-    (siteids) => {
-      sendBack(res, siteids, 200);
-    }
-  );
-};
-
-exports.getVotingSites = (req, res) =>  {
-  const query = req.query.search;
-  models.VotingSites
-  .findAll(
+  
+  json2csv(
     {
-      order: 'company ASC',
-    }
-  )
-  .then(
-    (siteids) => {
-      sendBack(res, siteids, 200);
+      data: attendees, 
+      fields: [
+        'paddedRegId', 
+        'confirmation', 
+        'firstname',
+        'lastname',
+        'title',
+        'email',
+        'phone',
+        'organization',
+        'address',
+        'address2',
+        'city',
+        'state',
+        'zipcode',
+        'siteid'
+      ]
+    }, 
+    (err, csv) => {
+      res.writeHead(200, { 'Content-Type': 'text/csv' });
+      res.write(csv, 'utf-8');
+      res.end('\n');
     }
   );
+};
+
+exports.getSiteIds = async (req, res) =>  {
+  const siteids = await knexDb.from('siteIds')
+    .orderBy('company', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
+  sendBack(res, siteids, 200);
+};
+
+exports.findSiteId = async (req, res) =>  {
+  const query = req.query.search;
+  const siteids = await knexDb.from('siteIds')
+    .where('siteId', 'LIKE', `%${query}%`)
+    .orderBy('company', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
+  sendBack(res, siteids, 200);
+};
+
+exports.findVotingSiteId = async (req, res) =>  {
+  const query = req.query.search;
+  const siteids = await knexDb.from('votingSites')
+    .where('siteId', 'LIKE', `%${query}%`)
+    .orderBy('company', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
+  sendBack(res, siteids, 200);
+};
+
+exports.findCompany = async (req, res) =>  {
+  const query = req.params.query;
+  const limit = req.body.limit ? req.body.limit : 50;
+  const siteids = await knexDb.from('siteIds')
+    .where('company', 'LIKE', `%${query}%`)
+    .orderBy('company', 'ASC')
+    .limit(limit)
+    .catch(e => console.log('db', 'database error', e));
+  sendBack(res, siteids, 200);
+};
+
+exports.findVotingSites = async (req, res) =>  {
+  const query = req.params.query;
+  const siteids = await knexDb.from('votingSites')
+    .where('company', 'LIKE', `%${query}%`)
+    .orderBy('company', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
+  sendBack(res, siteids, 200);
+};
+
+exports.getVotingSites = async (req, res) =>  {
+  const query = req.query.search;
+  const siteids = await knexDb.from('votingSites')
+    .orderBy('company', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
+  sendBack(res, siteids, 200);
 };
 
   //Auth a user
-exports.authVoter = (req, res) =>  {
+exports.authVoter = async (req, res) =>  {
   let request = req;
   let registrantId = req.params.voterId;
   let regType = registrantId.slice(0,1);
@@ -1701,49 +1746,42 @@ exports.authVoter = (req, res) =>  {
       response: null
     }
   };
-  models.Votes.find({ where: {registrantid: normalizedId} }).then(
-    (vote) => {
-      if (vote === null) {
-        registrants.getAttendee(
-          normalizedId, 
-          (member) => {
-            if ("id" in member) {
-              //console.log("member", member);
-              member.siteId = ("siteid" in member) ? member.siteid : member.siteId;
-              if (member.siteId !== "") {
-                getVotingSiteInfo(
-                  member.siteId, 
-                  (site) => {
-                    member.voterType = null;
-                    member.votes = [];
-                    site = (site) ? site.toJSON() : {};
-                    member.site = site;
-                    member.registrantId = normalizedId;
-                    sendBack(res, member, 200);
-                  }
-                );
-              } else {
-                member.voterType = null;
-                member.votes = [];
-                member.registrantId = normalizedId;
-                member.site = {};
-                sendBack(res, member, 200);
-              }
-            } else {
-              errorMsg.message.response = "No record of that registrant id exists.";
-              sendBack(res, errorMsg, 401);
-            }
-          }
-        );
+  
+  const vote = await knexDb.from('votes')
+    .where({ registrantid: normalizedId })
+    .catch(e => console.log('db', 'database error', e));
+
+  if (vote === null) {
+    const member = await registrants.getAttendee(normalizedId);
+    if ("id" in member) {
+      //console.log("member", member);
+      member.siteId = ("siteid" in member) ? member.siteid : member.siteId;
+      if (member.siteId !== "") {
+        const site = await getVotingSiteInfo(member.siteId);
+        member.voterType = null;
+        member.votes = [];
+        site = (site) ? site.toJSON() : {};
+        member.site = site;
+        member.registrantId = normalizedId;
+        sendBack(res, member, 200);
       } else {
-        errorMsg.message.response = "You have already voted.";
-        sendBack(res, errorMsg, 401);
+        member.voterType = null;
+        member.votes = [];
+        member.registrantId = normalizedId;
+        member.site = {};
+        sendBack(res, member, 200);
       }
+    } else {
+      errorMsg.message.response = "No record of that registrant id exists.";
+      sendBack(res, errorMsg, 401);
     }
-  );
+  } else {
+    errorMsg.message.response = "You have already voted.";
+    sendBack(res, errorMsg, 401);
+  }
 };
 
-exports.verifyVoterPin = (req, res) =>  {
+exports.verifyVoterPin = async (req, res) =>  {
   let request = req;
   let registrantId = req.params.voterId;
   let pin = req.params.pin;
@@ -1755,21 +1793,17 @@ exports.verifyVoterPin = (req, res) =>  {
       response: null
     }
   };
-  registrants.getAttendee(
-    registrantId, 
-    (member) => {
-      if (member.pin === pin) {
-        member.voterType = null;
-        member.votes = [];
-        member.registrantId = registrantId;
-        member.site = {};
-        sendBack(res, member, 200);
-      } else {
-        errorMsg.message.response = "Invalid Pin";
-        sendBack(res, errorMsg, 401);
-      }
-    }
-  );
+  const member = await registrants.getAttendee(registrantId);
+  if (member.pin === pin) {
+    member.voterType = null;
+    member.votes = [];
+    member.registrantId = registrantId;
+    member.site = {};
+    sendBack(res, member, 200);
+  } else {
+    errorMsg.message.response = "Invalid Pin";
+    sendBack(res, errorMsg, 401);
+  }
 };
 
 //Log out the current user
@@ -1780,36 +1814,15 @@ exports.logoutVoter = (req, res) =>  {
   });
 };
 
-exports.verifySiteId = (req, res) =>  {
+exports.verifySiteId = async (req, res) =>  {
   const siteId = req.params.siteId;
-  async.waterfall([
-    (callback) => {
-      getVotingSiteInfo(
-        siteId, 
-        (site) => {
-          if (site) {
-            site = site.toJSON();
-          }
-          callback(null, site);
-        }
-      );
-    },
-    (site, callback) => {
-      if (site) {
-        getSiteVoters(
-          site.siteId, 
-          (voters) => {
-            site.voters = voters;
-            callback(null, site);
-          }
-        );
-      } else {
-        callback(null, site);
-      }
-    }
-  ],(err, site) => {
-    sendBack(res, site, 200);
-  });
+  const site = await getVotingSiteInfo(siteId);
+  if (site) {
+    site = site.toJSON();
+    const voters = await getSiteVoters(site.siteId);
+    site.voters = voters;
+  }
+  sendBack(res, site, 200);
 };
 
 exports.addVoterType = (req, res) =>  {
@@ -1820,16 +1833,15 @@ exports.addVoterType = (req, res) =>  {
   sendBack(res, member, 200);
 };
 
-exports.castVotes = (req, res) =>  {
+exports.castVotes = async (req, res) =>  {
+  let status = 200;
   let user = req.body;
   let uid = uuidv4();
-  let errorMsg = {
-    status: "error",
-    message: {
-      response: null
-    }
-  };
-  const recordVote = (office, cb) => {
+  let msg = Object.assign(
+    {},
+    messageTemplate,
+  );
+  const recordVote = async (office) => {
     const vote = office;
     /*
     vote.datecast = new Date();
@@ -1840,158 +1852,120 @@ exports.castVotes = (req, res) =>  {
     vote.candidateid = vote.id;
     */
     /** update/insert */
-    models.Votes
-      .create(
-        vote, 
-        [
-          "uuid", 
-          "siteid", 
-          "electionid", 
-          "registrantid", 
-          "candidateid", 
-          "votertype", 
-          "datecast"
-        ]
-      )
+    const result = await this.knex('votes')
+      .insert(vote)
       .then(
-        (results) => {
-          cb(null, results);
-        }
-      );
+        data => self.knex('votes').where({ id: data[0] }),
+      )
+      .catch(e => error('db', 'database error', e));
+    
+    return result;
   };
-  models.Votes.find({ where: {registrantid: user.registrantId} }).then((vote) => {
-    if (vote === null) {
-      async.map(
-        user.votes, 
-        recordVote, 
-        (err, items) => {
-          const message = {
-            "status": "votes cast"
-          };
-          updateVoteTotals();
-          sendBack(res, items, 200);
-        }
-      );
-    } else {
-      errorMsg.message.response = "You have already voted.";
-      sendBack(res, errorMsg, 401);
+
+  const vote = await knexDb.from('votes')
+    .where({ registrantid: user.registrantId })
+    .catch(e => console.log('db', 'database error', e));
+
+  if (vote.length) {
+    msg.status = 'error'
+    msg.message.response = "You have already voted.";
+    status = 401;
+  } else {
+    const votesCast = await map(
+      user.votes, 
+      recordVote
+    ); 
+    msg.message.response = votesCast;
+    await updateVoteTotals();
+  }
+
+  sendBack(res, msg, status);
+};
+
+exports.offices = async (req, res) =>  {
+  let offices = await knexDb.from('electionOffices')
+    .catch(e => console.log('db', 'database error', e));
+
+  offices = await map(
+    offices,
+    async (office) => {
+      office.candidates = await knexDb.from('electionOfficeCandidates')
+        .where({ electionId: office.id })
+        .catch(e => console.log('db', 'database error', e));
+      return office;
     }
-  });
+  );
+
+  sendBack(res, offices, 200);
 };
 
-exports.offices = (req, res) =>  {
-  models.ElectionOffices
-    .findAll({ include: [{model:models.ElectionOfficeCandidates, as:"Candidates"}] })
-    .then(
-      (offices) => {
-        sendBack(res, offices, 200);
-      }
-    );
+const updateCheckedIn = async () => {
+  const count = await registrants.getCheckedInCount();
+
+  logAction(0, "updates", count, "checkedIn", "Number checked in");
 };
 
-var updateCheckedIn = () => {
-  registrants.getCheckedInCount(function(count) {
-    console.log("Update checked in");
-    logAction(0, "updates", count, "checkedIn", "Number checked in");
-  });
+const getSiteInfo = async (siteId) => {
+  const site = await knexDb.from('sites')
+    .where({ siteId })
+    .catch(e => console.log('db', 'database error', e));
+  return site;
 };
 
-var getSiteInfo = (siteId, cb) => {
-    models.Sites.find({ where: { siteId: siteId } }).then(
-    (siteId) => {
-      cb(site);
+const getVotingSiteInfo = async (siteId) => {
+  const site = await knexDb.from('votingSites')
+    .where({ siteId })
+    .catch(e => console.log('db', 'database error', e));
+  return site;
+};
+
+const updateVoteTotals = async () => {
+  let offices = await knexDb.from('electionOffices')
+    .catch(e => console.log('db', 'database error', e));
+
+  offices = await map(
+    offices,
+    async (office) => {
+      office.candidates = await knexDb.from('electionOfficeCandidates')
+        .where({ electionId: office.id })
+        .catch(e => console.log('db', 'database error', e));
+      return office;
     }
-    );
+  );
+  const votes = knexDb('votes')
+    .select(knex.raw('count(*) as count, candidateid'))
+    .groupBy('candidateid')
+    .catch(e => console.log('db', 'database error', e));
+
+  const results = {
+    votes,
+    offices,
+  };
 };
 
-var getVotingSiteInfo = (siteId, cb) => {
-    models.VotingSites.find({ where: { siteId: siteId } }).then(
-    (siteId) => {
-      cb(site);
+const getSiteVoters = async (siteId) => {
+  const votes = await knexDb.from('votes')
+    .where({ siteid: siteId })
+    .groupBy('registrantid')
+    .groupBy('votertype')
+    .groupBy('datecast')
+    .catch(e => console.log('db', 'database error', e));
+
+  const voters = await map(
+    votes,
+    async (vote) => {
+      const registrantId = vote.registrantid;
+      const regType = registrantId.slice(0,1);
+      const regId = parseInt(registrantId.slice(1), 10);
+
+      const member = await registrants.getAttendee(registrantId);
+      member.voterType = vote.votertype;
+      member.dateCast = vote.datecast;
+
+      return member;
     }
-    );
-};
-
-var updateVoteTotals = () => {
-  async.waterfall([
-    (callback) =>{
-      models.ElectionOffices
-      .findAll({ include: [{model:models.ElectionOfficeCandidates, as:"Candidates"}] })
-      .then(
-        (offices) => {
-          var result = {
-            offices: offices
-          };
-          callback(null, result); 
-        }
-      );
-    },
-    (result, callback) =>{
-      models.Votes.findAll({
-        attributes: ['candidateid', [Sequelize.fn('count', Sequelize.col('candidateid')), 'count']],
-        group: 'candidateid',
-        raw: true,
-      }).then(
-        (votes) => {
-          result.votes = votes;
-          callback(null, result);
-        }
-      );
-    }
-  ],(err, result) => {
-    logAction(0, "updates", result, "votes", "Vote total");
-  });
-  
-  
-};
-
-const getSiteVoters = (siteId, cb) => {
-
-  async.waterfall([
-    (callback) =>{
-      models.Votes
-      .findAll(
-        {
-          where: { siteid: siteId },
-          attributes: ['registrantid', 'votertype', 'datecast', [Sequelize.fn('count', Sequelize.col('registrantid')), 'count']],
-          group: ['registrantid', 'votertype', 'datecast',],
-          raw: true,
-        }
-      )
-      .then(
-        (votes) => {
-          callback(null, votes);
-        }
-      );
-    },
-    (votes, callback) => {
-      async.map(
-        votes,
-        (vote, mapCb) => {
-          const registrantId = vote.registrantid;
-          const regType = registrantId.slice(0,1);
-          const regId = parseInt(registrantId.slice(1), 10);
-
-          registrants.getAttendee(registrantId, (member) => {
-            member.voterType = vote.votertype;
-            member.dateCast = vote.datecast;
-            mapCb(null, member);
-          });
-        }, (err, voters) => {
-          if( err ) {
-            callback(err, null);
-          } else {
-            callback(null, voters);
-          }
-        }
-      );
-    },
-  ],(err, voters) => {
-    if (err) console.log("error:", err);
-    cb(voters);
-  });
-
-
+  );
+  return voters;
 };
 
 const sendBack = (res, data, status) => {
@@ -2011,16 +1985,16 @@ const getConnection = () => {
     return connection;
   }
   console.log(((connection) ?
-          "UNHEALTHY SQL CONNECTION; RE" : "") + "CONNECTING TO SQL.");
+    "UNHEALTHY SQL CONNECTION; RE" : "") + "CONNECTING TO SQL.");
   connection = mysql.createConnection(opts.configs.mysql);
   connection.connect((err) => {
     if (err) {
       console.log("(Retry: "+reconnectTries+") SQL CONNECT ERROR: " + err);
       reconnectTries++;
-      var timeOut = ((reconnectTries * 50) < 30000) ? reconnectTries * 50 : 30000;
+      const timeOut = ((reconnectTries * 50) < 30000) ? reconnectTries * 50 : 30000;
       if (reconnectTries === 50) {
           /**
-          var mailOptions = {
+          const mailOptions = {
               from: "VPPPA Site ID Lookup <noreply@vpppa.org>", // sender address
               to: "problem@griffinandassocs.com", // list of receivers
               subject: "VPPPA Site ID Lookup DB Issue", // Subject line

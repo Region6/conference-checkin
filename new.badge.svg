@@ -11,7 +11,7 @@
    height="1056"
    id="svg2"
    version="1.1"
-   inkscape:version="0.92.1 unknown"
+   inkscape:version="0.92.3 (unknown)"
    sodipodi:docname="new.badge.svg">
   <sodipodi:namedview
      pagecolor="#ffffff"
@@ -22,18 +22,18 @@
      guidetolerance="10"
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
-     inkscape:window-width="1485"
-     inkscape:window-height="897"
+     inkscape:window-width="1920"
+     inkscape:window-height="1013"
      id="namedview189"
      showgrid="true"
      showguides="false"
      inkscape:guide-bbox="true"
      inkscape:zoom="2"
-     inkscape:cx="595.65764"
-     inkscape:cy="123.35703"
-     inkscape:window-x="250"
-     inkscape:window-y="112"
-     inkscape:window-maximized="0"
+     inkscape:cx="478.43976"
+     inkscape:cy="863.35703"
+     inkscape:window-x="0"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1"
      inkscape:current-layer="layer2"
      inkscape:snap-global="true"
      inkscape:snap-bbox="true">
@@ -122,7 +122,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -140,10 +140,10 @@
          x="47.237499"
          y="47.650002"
          id="tspan13390"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Bold';font-family:Roboto;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="47.237499"
            y="47.650002"
-           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:42.66666794px;font-family:FreeSans;-inkscape-font-specification:'FreeSans Semi-Bold';stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:42.66666794px;font-family:Roboto;-inkscape-font-specification:'Roboto Bold';stroke-width:1.06666672px"
            id="tspan13392">G-358</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -155,10 +155,10 @@
          x="764.67242"
          y="46.503048"
          id="tspan13408"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Bold';font-family:Roboto;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="764.67242"
            y="46.503048"
-           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:42.66666794px;font-family:FreeSans;-inkscape-font-specification:'FreeSans Semi-Bold';stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:42.66666794px;font-family:Roboto;-inkscape-font-specification:'Roboto Bold';stroke-width:1.06666672px"
            id="tspan13410">killingsworth, eddy</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -170,10 +170,10 @@
          x="59.911339"
          y="67.584946"
          id="tspan13396"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Bold';font-family:Roboto;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="59.911339"
            y="67.584946"
-           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:21.33333397px;font-family:FreeSans;-inkscape-font-specification:'FreeSans Semi-Bold';stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:21.33333397px;font-family:Roboto;-inkscape-font-specification:'Roboto Bold';stroke-width:1.06666672px"
            id="tspan13398">358</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -185,38 +185,28 @@
          x="59.912708"
          y="88.790375"
          id="tspan13372"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="59.912708"
            y="88.790375"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;stroke-width:1.06666672px"
-           id="tspan13374">killingsworth, eddy</tspan><tspan
-           dx="0"
-           x="149.49083"
-           y="88.790375"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;stroke-width:1.06666672px"
-           id="tspan13376" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;stroke-width:1.06666672px"
+           id="tspan13374">killingsworth, eddy</tspan></tspan><tspan
          sodipodi:role="line"
          x="59.912708"
          y="112.1237"
          id="tspan13378"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="59.912708"
            y="112.1237"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;stroke-width:1.06666672px"
-           id="tspan13380">westlake chemical</tspan><tspan
-           dx="0"
-           x="284.67834"
-           y="112.1237"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;stroke-width:1.06666672px"
-           id="tspan13382" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;stroke-width:1.06666672px"
+           id="tspan13380">westlake chemical</tspan></tspan><tspan
          sodipodi:role="line"
          x="59.912708"
          y="135.45705"
          id="tspan13384"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="59.912708"
            y="135.45705"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;stroke-width:1.06666672px"
            id="tspan13386">longview, Texas</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -228,10 +218,10 @@
          x="58.57539"
          y="229.86383"
          id="tspan13338"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Medium';font-family:Roboto;font-weight:500;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="58.57539"
            y="229.86383"
-           style="font-size:22.66666603px;fill:#666666;stroke-width:1.06666672px"
+           style="font-size:22.66666603px;fill:#666666;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Medium';font-family:Roboto;font-weight:500;font-style:normal;font-stretch:normal;font-variant:normal"
            id="tspan13340">HSE reliability manager</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -243,10 +233,10 @@
          x="59.093334"
          y="254.86653"
          id="tspan13344"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="59.093334"
            y="254.86653"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.33333397px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999;stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.33333397px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#999999;stroke-width:1.06666672px"
            id="tspan13346">westlake chemical</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -258,10 +248,10 @@
          x="59.093334"
          y="279.85831"
          id="tspan13354"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="59.093334"
            y="279.85831"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.33333397px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#999999;stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:21.33333397px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#999999;stroke-width:1.06666672px"
            id="tspan13356">longview, Texas</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -576,10 +566,10 @@
          x="439.25333"
          y="80.957687"
          id="tspan13669"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Bold';font-family:Roboto;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="439.25333"
            y="80.957687"
-           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:FreeSans;-inkscape-font-specification:'FreeSans Semi-Bold';stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Roboto;-inkscape-font-specification:'Roboto Bold';stroke-width:1.06666672px"
            id="tspan13671">eddy killingsworth</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -778,10 +768,10 @@
          x="439.25333"
          y="462.21857"
          id="tspan13837"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Bold';font-family:Roboto;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="439.25333"
            y="462.21857"
-           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:FreeSans;-inkscape-font-specification:'FreeSans Semi-Bold';stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Roboto;-inkscape-font-specification:'Roboto Bold';stroke-width:1.06666672px"
            id="tspan13839">eddy killingsworth</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -822,48 +812,38 @@
          x="441.31998"
          y="547.33313"
          id="tspan13855"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="547.33313"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13857">Drawings</tspan><tspan
-           dx="0"
-           x="508.62207"
-           y="547.33313"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13859" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
+           id="tspan13857">Drawings</tspan></tspan><tspan
          sodipodi:role="line"
          x="441.31998"
          y="570.66644"
          id="tspan13861"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="570.66644"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13863">2:30 p.m.</tspan><tspan
-           dx="0"
-           x="516.75226"
-           y="570.66644"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13865" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
+           id="tspan13863">2:30 p.m.</tspan></tspan><tspan
          sodipodi:role="line"
          x="441.31998"
          y="593.99982"
          id="tspan13867"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="593.99982"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
            id="tspan13869"
            dx="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0">Convention Center - Rotunda</tspan></tspan><tspan
          sodipodi:role="line"
          x="441.31998"
          y="617.33313"
          id="tspan13873"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="617.33313"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
            id="tspan13875">Wednesday, May 3rd </tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -875,10 +855,10 @@
          x="439.25333"
          y="654.86224"
          id="tspan13879"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:'Roboto Bold';font-family:Roboto;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="439.25333"
            y="654.86224"
-           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-family:FreeSans;-inkscape-font-specification:'FreeSans Semi-Bold';stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Roboto;-inkscape-font-specification:'Roboto Bold';stroke-width:1.06666672px"
            id="tspan13881">eddy killingsworth</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -890,24 +870,19 @@
          x="440.21335"
          y="678.12268"
          id="tspan13885"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="440.21335"
            y="678.12268"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.33333397px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#333333;stroke-width:1.06666672px"
-           id="tspan13887">westlake chemical</tspan><tspan
-           dx="0"
-           x="648.92426"
-           y="678.12268"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.33333397px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#333333;stroke-width:1.06666672px"
-           id="tspan13889" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.33333397px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#333333;stroke-width:1.06666672px"
+           id="tspan13887">westlake chemical</tspan></tspan><tspan
          sodipodi:role="line"
          x="440.21335"
          y="699.78931"
          id="tspan13891"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="440.21335"
            y="699.78931"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.33333397px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#333333;stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.33333397px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#333333;stroke-width:1.06666672px"
            id="tspan13893">longview, Texas</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -919,52 +894,37 @@
          x="441.31998"
          y="739.97681"
          id="tspan13897"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="739.97681"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13899">Various Drawings</tspan><tspan
-           dx="0"
-           x="584.16376"
-           y="739.97681"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13901" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
+           id="tspan13899">Various Drawings</tspan></tspan><tspan
          sodipodi:role="line"
          x="441.31998"
          y="763.31018"
          id="tspan13903"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="763.31018"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13905">11:30 a.m.</tspan><tspan
-           dx="0"
-           x="516.46063"
-           y="763.31018"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13907" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
+           id="tspan13905">11:30 a.m.</tspan></tspan><tspan
          sodipodi:role="line"
          x="441.31998"
          y="786.64349"
          id="tspan13909"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="786.64349"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13911">Omni Hotel - Texas Ballroom</tspan><tspan
-           dx="0"
-           x="740.42413"
-           y="786.64349"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
-           id="tspan13913" /></tspan><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
+           id="tspan13911">Omni Hotel - Texas Ballroom</tspan></tspan><tspan
          sodipodi:role="line"
          x="441.31998"
          y="809.97681"
          id="tspan13915"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"><tspan
            x="441.31998"
            y="809.97681"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#666666;stroke-width:1.06666672px"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#666666;stroke-width:1.06666672px"
            id="tspan13917">Thursday, May 4th </tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -976,11 +936,11 @@
          x="440.21335"
          y="850.80841"
          id="tspan13230"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px">Entitles the bearer to one </tspan><tspan
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal">Entitles the bearer to one </tspan><tspan
          sodipodi:role="line"
          x="440.21335"
          y="887.4751"
-         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px"
+         style="font-size:29.33333397px;line-height:1.25;stroke-width:1.06666672px;-inkscape-font-specification:Roboto;font-family:Roboto;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal"
          id="tspan19811">free T-shirt *</tspan></text>
     <text
        xml:space="preserve"
@@ -991,7 +951,7 @@
          sodipodi:role="line"
          x="437.60666"
          y="979.89832"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;line-height:1.25;font-family:FreeSans;-inkscape-font-specification:FreeSans;stroke-width:1.06666672px;fill:#999999;"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.66666603px;line-height:1.25;font-family:Roboto;-inkscape-font-specification:Roboto;stroke-width:1.06666672px;fill:#999999"
          id="tspan13272">*while supplies last</tspan></text>
     <g
        id="elements"
@@ -69474,7 +69434,7 @@
            id="tspan4027"
            x="-94.050179"
            y="24.888889"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.66666603px;line-height:1.25;font-family:monospace;-inkscape-font-specification:monospace;writing-mode:lr-tb;fill:#cccccc;stroke-width:1.06666672px">G00358</tspan></text>
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.66666603px;line-height:1.25;font-family:'PT Mono';-inkscape-font-specification:'PT Mono';writing-mode:lr-tb;fill:#cccccc;stroke-width:1.06666672px">G00358</tspan></text>
     </g>
     <text
        xml:space="preserve"
@@ -69487,7 +69447,7 @@
          id="tspan3555"
          x="153.37256"
          y="-400.89203"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:32px;line-height:1.25;font-family:FreeSans;-inkscape-font-specification:FreeSans;stroke-width:1.06666672px">REGION VI VPPPA </tspan></text>
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:34.66666667px;line-height:1.25;font-family:Roboto;-inkscape-font-specification:Roboto;stroke-width:1.06666672px">REGION VI VPPPA </tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:0%;font-family:'FreeSans Semi-Bold';-inkscape-font-specification:'FreeSans Semi-Bold';letter-spacing:0px;word-spacing:0.01066667px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.06666672px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -69497,7 +69457,7 @@
          sodipodi:role="line"
          x="55.466667"
          y="202.07677"
-         style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:66.66666412px;line-height:1.13;font-family:FreeSans;-inkscape-font-specification:'FreeSans Semi-Bold';stroke-width:1.06666672px"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:66.66666412px;line-height:1.13;font-family:Roboto;-inkscape-font-specification:'Roboto Bold';stroke-width:1.06666672px"
          id="tspan4038">eddy</tspan></text>
     <text
        xml:space="preserve"
@@ -69524,7 +69484,7 @@
          id="tspan19832"
          x="437.83334"
          y="952"
-         style="font-size:21.33333397px;fill:#1a1a1a;fill-opacity:0.91789216;">registrantid</tspan></text>
+         style="font-size:21.33333397px;fill:#1a1a1a;fill-opacity:0.91789216;-inkscape-font-specification:'PT Mono';font-family:'PT Mono';font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal">registrantid</tspan></text>
   </g>
   <g
      id="g3794"
@@ -69540,6 +69500,6 @@
          id="tspan4027-5"
          x="-40.183514"
          y="25.955557"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.06666756px;line-height:1.25;font-family:monospace;-inkscape-font-specification:monospace;writing-mode:lr-tb;fill:#cccccc;stroke-width:1.06666672px">2067</tspan></text>
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.06666756px;line-height:1.25;font-family:'PT Mono';-inkscape-font-specification:'PT Mono';writing-mode:lr-tb;fill:#cccccc;stroke-width:1.06666672px">2067</tspan></text>
   </g>
 </svg>

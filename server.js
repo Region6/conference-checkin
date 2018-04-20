@@ -4,6 +4,8 @@
     Include required packages
 =============================================================== */
 
+const http = require('http');
+const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -111,10 +113,11 @@ const allowCrossDomain = (req, res, next) => {
 };
 opts.secret = salt;
 opts.store = new RedisStore(redisConfig);
-
-const app = module.exports = require("sockpress").init(opts);
-const router = app.express.Router();
-const apiRouter = app.express.Router();
+const app = express(opts);
+const server = http.createServer(app);
+//const app = module.exports = require("sockpress").init(opts);
+const router = express.Router();
+const apiRouter = express.Router();
 
 // Express Configuration
 const oneDay = 86400000;
@@ -126,16 +129,16 @@ if ("log" in config) {
 }
 **/
 app.use(cookieParser());
-app.use(app.express.static(__dirname + '/public'));     // set the static files location
-app.use('/css', app.express.static(__dirname + '/public/css'));
-app.use('/js', app.express.static(__dirname + '/public/js'));
-app.use('/images', app.express.static(__dirname + '/public/images'));
-app.use('/img', app.express.static(__dirname + '/public/images'));
-app.use('/fonts', app.express.static(__dirname + '/public/fonts'));
-app.use('/css/lib/fonts', app.express.static(__dirname + '/public/fonts'));
-app.use('/assets', app.express.static(__dirname + '/assets'));
-app.use('/lib', app.express.static(__dirname + '/lib'));
-app.use('/bower_components', app.express.static(__dirname + '/bower_components'));
+app.use(express.static(__dirname + '/public'));     // set the static files location
+app.use('/css', express.static(__dirname + '/public/css'));
+app.use('/js', express.static(__dirname + '/public/js'));
+app.use('/images', express.static(__dirname + '/public/images'));
+app.use('/img', express.static(__dirname + '/public/images'));
+app.use('/fonts', express.static(__dirname + '/public/fonts'));
+app.use('/css/lib/fonts', express.static(__dirname + '/public/fonts'));
+app.use('/assets', express.static(__dirname + '/assets'));
+app.use('/lib', express.static(__dirname + '/lib'));
+app.use('/bower_components', express.static(__dirname + '/bower_components'));
 app.use(morgan('dev')); // log every request to the console
 app.use(bodyParser.json({limit: '50mb'}));
 app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
@@ -148,7 +151,7 @@ const ioEvents = require('./ioEvents');
 
 routes.setKey("configs", config);
 routes.initialize();
-ioEvents.initialize(config);
+// ioEvents.initialize(config);
 
 /*  ==============================================================
     Routes
@@ -162,8 +165,9 @@ app.use('/', router);
 apiRouter.get('/registrants', routes.registrants);
 apiRouter.get('/registrants/:id', routes.getRegistrant);
 apiRouter.get('/download/checkedin', routes.downloadCheckedInAttendees);
-apiRouter.put('/registrants/:id', routes.updateRegistrantValues);
+apiRouter.put('/registrants/:id', routes.updateRegistrant);
 apiRouter.post('/registrants', routes.addRegistrant);
+apiRouter.post('/search', routes.searchRegistrants);
 apiRouter.patch('/registrants/:id', routes.updateRegistrant);
 apiRouter.get('/fields/:type', routes.getFields);
 apiRouter.get('/exhibitors/companies', routes.getExhibitorCompanies);
@@ -181,8 +185,9 @@ apiRouter.get('/events/onsite', routes.getOnsiteEvents);
 
 apiRouter.post('/payment', routes.makePayment);
 apiRouter.get('/getNumberCheckedIn', routes.getNumberCheckedIn);
-apiRouter.get('/company', routes.findCompany);
+apiRouter.post('/company/:query', routes.findCompany);
 apiRouter.get('/siteid', routes.findSiteId);
+apiRouter.get('/siteids', routes.getSiteIds);
 apiRouter.get('/votingSite/:query', routes.findVotingSites);
 apiRouter.get('/votingSites', routes.getVotingSites);
 apiRouter.get('/votingSiteId', routes.findVotingSiteId);
@@ -212,10 +217,13 @@ app.use((err, req, res, next) => {
 =============================================================== */
 
 routes.setKey("io", app.io);
-app.io.route('ready', ioEvents.connection);
+//app.io.route('ready', ioEvents.connection);
 
 /*  ==============================================================
     Launch the server
 =============================================================== */
 const port = (config.port) ? config.port : 3001;
-app.listen(port);
+server.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});
+
