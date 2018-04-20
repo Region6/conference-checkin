@@ -72,32 +72,6 @@ const messageTemplate = {
   }
 };
 
-const getPrinter = (callback) => {
-  const addPrinter = (item, cb) => {
-    //console.log("printer", item);
-    printerUrl[item.type].push({url: "http://" + item.host +item.uri});
-    cb(null);
-  };
-  models.Printers.findAll(
-    {
-      order: [
-        ['type', 'ASC']
-      ]
-    }
-  )
-  .then(
-    (printers) => {
-      async.each(printers, addPrinter, (err) => {
-        //console.log(err);
-        callback();
-      });
-    },
-    (err) => {
-      
-    }
-  );
-};
-
 const sendMessage = (type, payload) => {
   console.log('sendMessage');
   const message = {
@@ -136,13 +110,6 @@ exports.setKey = (key, value) => {
 exports.initialize = () => {
   //Initialize Mysql
   //getConnection();
-
-  db.checkin = new Sequelize(
-    opts.configs.mysql.database,
-    opts.configs.mysql.username,
-    opts.configs.mysql.password,
-    opts.configs.mysql,
-  );
 
   merchantAuthenticationType.setName(opts.configs.authorizenet.id);
   merchantAuthenticationType.setTransactionKey(opts.configs.authorizenet.key);
@@ -197,418 +164,48 @@ exports.initialize = () => {
       console.log('attached to queue');
       sendMessage('hello', {date: moment().valueOf()});
     });
-    queue.on('message', (payload, id) => {
+    queue.on('message', async (payload, id) => {
       const message = JSON.parse(payload);
       console.log('message id:', id);
       console.log('message', message);
       const p = message.payload;
       if (message.serverId !== opts.configs.id && "id" in message) {
-        models.eventLogs.find({
-          where: {
-            eventId: message.id
-          }
-        })
-        .then(
-          (event) => {
-            if (!event) {
-              return models.eventLogs.create(
-                { 
-                  eventId: message.id
-                }
-              );
-            } else {
-              return;
-            }
-          }
-        ).then(
-          (event) => {
-            switch(message.type) {
-              case 'makePayment':
-                _makePayment(p.values, true);
-                break;
-              case 'updateRegistrantValues':
-                _updateRegistrantValues(p.type, p.id, p.registrantId, p.values, true);
-                break;
-              case 'addRegistrant':
-                registrants.initRegistrant(p.values);
-                break;
-              default:
-                console.log('Missing message type:', message.type);
-            }
-          }
-        );
+        const event = await knexDb.from('eventLogs')
+          .where({
+            eventId: message.id,
+          })
+          .catch(e => console.log('db', 'database error', e));
+        if (!event.length) {
+          const results = await knexDb('eventLogs')
+            .insert({ 
+              eventId: message.id,
+            })
+            .then(
+              data => knexDb('eventLogs').where({ id: data[0] }),
+            )
+            .catch(e => console.log('db', 'database error', e));
+        }
+
+        switch(message.type) {
+          case 'makePayment':
+            _makePayment(p.values, true);
+            break;
+          case 'updateRegistrantValues':
+            _updateRegistrantValues(p.type, p.id, p.registrantId, p.values, true);
+            break;
+          case 'addRegistrant':
+            registrants.initRegistrant(p.values);
+            break;
+          default:
+            console.log('Missing message type:', message.type);
+        }
       }
     });
     queue.attach();
     queue.consume({remove: false, index: 0});
   });
   bus.connect();
-
-  models.Events = db.checkin.define('events', {
-    slabId:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    local_slabId :              { type: Sequelize.INTEGER },
-    eventId:              { type: Sequelize.STRING(36) },
-    local_eventId :              { type: Sequelize.INTEGER },
-    title:              { type: Sequelize.STRING(255) },
-    dtstart:             { type: Sequelize.DATE },
-    dtend:             { type: Sequelize.DATE },
-    dtstarttime :             { type: Sequelize.TEXT },
-    dtendtime :             { type: Sequelize.TEXT },
-    latefee :          { type: Sequelize.DECIMAL(10, 2) },
-    latefeedate:             { type: Sequelize.DATE },
-    email:             { type: Sequelize.TEXT },
-    max_registrations :              { type: Sequelize.INTEGER },
-    registration_type:              { type: Sequelize.STRING(50) },
-    topmsg:             { type: Sequelize.TEXT },
-    cut_off_date:             { type: Sequelize.DATE },
-    discount_type :              { type: Sequelize.INTEGER(2) },
-    discount_amount :          { type: Sequelize.DECIMAL(10, 2) },
-    thksmsg:             { type: Sequelize.TEXT },
-    thksmsg_set :              { type: Sequelize.INTEGER(4) },
-    event_describe:             { type: Sequelize.TEXT },
-    event_describe_set :              { type: Sequelize.INTEGER(4) },
-    terms_conditions_set :              { type: Sequelize.INTEGER(4) },
-    terms_conditions_msg:             { type: Sequelize.TEXT },
-    category :              { type: Sequelize.INTEGER(1) },
-    max_group_size :              { type: Sequelize.INTEGER(5) },
-    ordering :              { type: Sequelize.INTEGER(7) },
-    waiting_list :              { type: Sequelize.INTEGER(1) },
-    public :              { type: Sequelize.INTEGER(1) },
-    export :              { type: Sequelize.INTEGER(2) },
-    use_discountcode :              { type: Sequelize.INTEGER(3) },
-    article_id :              { type: Sequelize.INTEGER(11) },
-    detail_link_show :              { type: Sequelize.INTEGER(2) },
-    show_registrant :              { type: Sequelize.INTEGER(4) },
-    publish :              { type: Sequelize.INTEGER(4) },
-    startdate:             { type: Sequelize.DATE },
-    bird_discount_type :              { type: Sequelize.INTEGER(2) },
-    bird_discount_amount:              { type: Sequelize.STRING(12) },
-    bird_discount_date:             { type: Sequelize.DATE },
-    payment_option :              { type: Sequelize.INTEGER(2) },
-    location_id :              { type: Sequelize.INTEGER(11) },
-    archive :              { type: Sequelize.INTEGER(2) },
-    partial_payment :              { type: Sequelize.INTEGER(2) },
-    partial_amount:              { type: Sequelize.STRING(20) },
-    partial_minimum_amount:              { type: Sequelize.STRING(20) },
-    edit_fee :              { type: Sequelize.INTEGER(2) },
-    cancelfee_enable :              { type: Sequelize.INTEGER(2) },
-    cancel_date:              { type: Sequelize.STRING(30) },
-    cancel_refund_status :              { type: Sequelize.INTEGER(1) },
-    excludeoverlap :              { type: Sequelize.INTEGER(2) },
-    pay_later_thk_msg_set :              { type: Sequelize.INTEGER(2) },
-    pay_later_thk_msg:             { type: Sequelize.TEXT },
-    thanksmsg_set :              { type: Sequelize.INTEGER(2) },
-    thanksmsg:             { type: Sequelize.TEXT },
-    change_date:              { type: Sequelize.STRING(20) },
-    detail_itemid :              { type: Sequelize.INTEGER(4) },
-    tax_enable :              { type: Sequelize.INTEGER(2) },
-    tax_amount :          { type: Sequelize.DECIMAL(8, 2) },
-    payment_id :              { type: Sequelize.INTEGER(4) },
-    repetition_id :              { type: Sequelize.INTEGER(7) },
-    parent_id :              { type: Sequelize.INTEGER(7) },
-    usercreation :              { type: Sequelize.INTEGER(3) },
-    imagepath:              { type: Sequelize.STRING(255) },
-    timeformat :              { type: Sequelize.INTEGER(2) },
-    latefeetime :             { type: Sequelize.TEXT },
-    bird_discount_time :             { type: Sequelize.TEXT },
-    starttime :             { type: Sequelize.TEXT },
-    cut_off_time :             { type: Sequelize.TEXT },
-    change_time :             { type: Sequelize.TEXT },
-    cancel_time :             { type: Sequelize.TEXT },
-    user_id :              { type: Sequelize.INTEGER(7) },
-    changefee_enable :              { type: Sequelize.INTEGER(2) },
-    changefee_type :              { type: Sequelize.INTEGER(2) },
-    changefee :          { type: Sequelize.DECIMAL(8, 2) },
-    cancelfee_type :              { type: Sequelize.INTEGER(2) },
-    cancelfee :          { type: Sequelize.DECIMAL(8, 2) },
-    usetimecheck :              { type: Sequelize.INTEGER(1) },
-    group_registration_type:              { type: Sequelize.STRING(20) },
-    cancel_enable :              { type: Sequelize.INTEGER(1) },
-    min_group_size :              { type: Sequelize.INTEGER(4) },
-    admin_notification_set :              { type: Sequelize.INTEGER(2) },
-    admin_notification:             { type: Sequelize.TEXT },
-    partial_payment_enable :              { type: Sequelize.INTEGER(1) },
-    prevent_duplication :              { type: Sequelize.INTEGER(1) },
-    event_admin_email_set :              { type: Sequelize.INTEGER(4) },
-    event_admin_email_from_name:              { type: Sequelize.STRING(100) },
-    event_admin_email_from_email:              { type: Sequelize.STRING(100) },
-    thanks_redirection :              { type: Sequelize.INTEGER(2) },
-    thanks_redirect_url:              { type: Sequelize.STRING(255) },
-    pay_later_redirection :              { type: Sequelize.INTEGER(2) },
-    pay_later_redirect_url:              { type: Sequelize.STRING(255) },
-    timezone:              { type: Sequelize.STRING(255) },
-    registering:             { type: Sequelize.TEXT },
-    uid:              { type: Sequelize.STRING(100)},
-    usergroup:             { type: Sequelize.TEXT },
-    discount_code_usagetype :              { type: Sequelize.INTEGER(2) },
-    confirm_number_prefix:              { type: Sequelize.STRING(20) },
-    badge_prefix:              { type: Sequelize.STRING(20) },
-    reg_type:              { type: Sequelize.STRING(100) },
-    member :              { type: Sequelize.INTEGER(1) },
-    tax_exemption_allow :              { type: Sequelize.INTEGER(2) },
-    tax_code_field_type:              { type: Sequelize.STRING(20) },
-    tax_code_values:              { type: Sequelize.STRING(100) }
-  });
-
-  models.CheckinMemberFieldValues = db.checkin.define('member_field_values', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    local_id:             { type: Sequelize.INTEGER },
-    event_id:             { type: Sequelize.STRING(36) },
-    field_id:             { type: Sequelize.INTEGER },
-    member_id:            { type: Sequelize.INTEGER },
-    value:                { type: Sequelize.TEXT }
-  });
-
-  models.CheckinGroupMembers = db.checkin.define('group_members', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    groupMemberId :       { type: Sequelize.INTEGER },
-    event_id :            { type: Sequelize.STRING(36) },
-    groupUserId :         { type: Sequelize.INTEGER },
-    created :             { type: Sequelize.DATE },
-    confirmnum :          { type: Sequelize.STRING(100) },
-    attend:               { type: Sequelize.BOOLEAN },
-    discount_code_id :    { type: Sequelize.INTEGER },
-    checked_in_time :     { type: Sequelize.DATE }
-  });
-
-  models.CheckinEventFields = db.checkin.define('event_fields', {
-    id:             { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    local_id :       { type: Sequelize.INTEGER },
-    event_id :       { type: Sequelize.STRING(36) },
-    field_id :       { type: Sequelize.INTEGER },
-    local_event_id :       { type: Sequelize.INTEGER },
-    badge_order :       { type: Sequelize.INTEGER },
-    class :       { type: Sequelize.TEXT },
-    name :       { type: Sequelize.STRING(50) },
-    label :       { type: Sequelize.STRING(255) },
-    field_size:       { type: Sequelize.INTEGER },
-    description :       { type: Sequelize.STRING(255) },
-    ordering :       { type: Sequelize.INTEGER },
-    published :       { type: Sequelize.INTEGER },
-    required:       { type: Sequelize.INTEGER },
-    values :       { type: Sequelize.TEXT },
-    type :       { type: Sequelize.INTEGER },
-    selected :       { type: Sequelize.STRING(255) },
-    rows:       { type: Sequelize.INTEGER },
-    cols:       { type: Sequelize.INTEGER },
-    fee_field:       { type: Sequelize.INTEGER },
-    fees :       { type: Sequelize.TEXT },
-    new_line:       { type: Sequelize.INTEGER },
-    textual :       { type: Sequelize.TEXT },
-    export_individual :       { type: Sequelize.BOOLEAN },
-    export_group :       { type: Sequelize.BOOLEAN },
-    attendee_list :       { type: Sequelize.BOOLEAN },
-    usagelimit :       { type: Sequelize.TEXT },
-    fee_type :       { type: Sequelize.BOOLEAN },
-    filetypes :       { type: Sequelize.TEXT },
-    upload :       { type: Sequelize.BOOLEAN },
-    filesize :       { type: Sequelize.INTEGER },
-    hidden :       { type: Sequelize.BOOLEAN },
-    allevent :       { type: Sequelize.BOOLEAN },
-    maxlength :       { type: Sequelize.INTEGER },
-    date_format :       { type: Sequelize.STRING(25) },
-    parent_id :       { type: Sequelize.INTEGER },
-    selection_values :       { type: Sequelize.TEXT },
-    textareafee :       { type: Sequelize.TEXT },
-    showcharcnt :       { type: Sequelize.BOOLEAN },
-    default :       { type: Sequelize.BOOLEAN },
-    confirmation_field :       { type: Sequelize.BOOLEAN },
-    listing :       { type: Sequelize.TEXT },
-    textualdisplay :       { type: Sequelize.BOOLEAN },
-    applychangefee :       { type: Sequelize.BOOLEAN },
-    tag :       { type: Sequelize.STRING(255) },
-    all_tag_enable :       { type: Sequelize.BOOLEAN },
-    minimum_group_size :       { type: Sequelize.INTEGER },
-    max_group_size :       { type: Sequelize.INTEGER },
-    discountcode_depend :       { type: Sequelize.BOOLEAN },
-    discount_codes :       { type: Sequelize.TEXT },
-    showed :       { type: Sequelize.INTEGER },
-    group_behave :       { type: Sequelize.INTEGER }
-  });
-
-  models.CheckinBiller = db.checkin.define('biller', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    userId :              { type: Sequelize.INTEGER },
-    eventId :             { type: Sequelize.STRING(36) },
-    local_eventId :       { type: Sequelize.INTEGER },
-    type :                { type: Sequelize.ENUM('I', 'G') },
-    register_date :       { type: Sequelize.DATE },
-    payment_type :        { type: Sequelize.STRING(100) },
-    due_amount :          { type: Sequelize.DECIMAL(10, 2) },
-    pay_later_option:     { type: Sequelize.INTEGER },
-    confirmNum :          { type: Sequelize.STRING(50) },
-    user_id :             { type: Sequelize.INTEGER },
-    payment_verified :    { type: Sequelize.INTEGER },
-    pay_later_paid:       { type: Sequelize.INTEGER },
-    discount_code_id :    { type: Sequelize.INTEGER },
-    billing_firstname :   { type: Sequelize.STRING(150) },
-    billing_lastname :    { type: Sequelize.STRING(150) },
-    billing_address :     { type: Sequelize.STRING(255) },
-    billing_city :        { type: Sequelize.STRING(150) },
-    billing_state :       { type: Sequelize.STRING(150) },
-    billing_zipcode :     { type: Sequelize.STRING(10) },
-    billing_email :       { type: Sequelize.STRING(150) },
-    due_payment :         { type: Sequelize.DECIMAL(10, 2) },
-    status :              { type: Sequelize.INTEGER },
-    attend :              { type: Sequelize.BOOLEAN },
-    paid_amount :         { type: Sequelize.STRING(30) },
-    transaction_id :      { type: Sequelize.STRING(255) },
-    memtot :              { type: Sequelize.INTEGER },
-    cancel :              { type: Sequelize.INTEGER }
-  });
-
-  models.CheckinEventFees = db.checkin.define('event_fees', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    local_id :            { type: Sequelize.INTEGER },
-    event_id :            { type: Sequelize.STRING(36) },
-    user_id :             { type: Sequelize.INTEGER },
-    basefee :             { type: Sequelize.STRING(20) },
-    memberdiscount :      { type: Sequelize.STRING(12) },
-    latefee :             { type: Sequelize.STRING(12) },
-    birddiscount :        { type: Sequelize.STRING(12) },
-    discountcodefee :     { type: Sequelize.STRING(12) },
-    customfee :           { type: Sequelize.STRING(12) },
-    tax :                 { type: Sequelize.STRING(12) },
-    fee :                 { type: Sequelize.STRING(12) },
-    paid_amount :         { type: Sequelize.STRING(12) },
-    status :              { type: Sequelize.STRING(12), defaultValue: '0' },
-    due:                  { type: Sequelize.STRING(20), defaultValue: '0' },
-    payment_method:       { type: Sequelize.STRING(20), defaultValue: '0' },
-    feedate :             { type: Sequelize.DATE },
-    changefee :           { type: Sequelize.STRING(12), defaultValue: '0' },
-    cancelfee :           { type: Sequelize.STRING(12), defaultValue: '0' }
-  });
-
-  models.CheckinBillerFieldValues = db.checkin.define('biller_field_values', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    local_id :            { type: Sequelize.INTEGER },
-    event_id :            { type: Sequelize.STRING(36) },
-    field_id :            { type: Sequelize.INTEGER },
-    user_id :             { type: Sequelize.INTEGER },
-    value :               { type: Sequelize.TEXT }
-  });
-
-  models.ElectionOffices = db.checkin.define('electionOffices', {
-    id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    conferenceid :          { type: Sequelize.INTEGER },
-    position :              { type: Sequelize.INTEGER },
-    title :                 { type: Sequelize.STRING(255) },
-    description :           { type: Sequelize.STRING(255) }
-  });
-
-  models.ElectionOfficeCandidates = db.checkin.define('electionOfficeCandidates', {
-    id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    electionid :            { type: Sequelize.INTEGER },
-    position :              { type: Sequelize.INTEGER },
-    name :                  { type: Sequelize.STRING(255) },
-    company :               { type: Sequelize.STRING(255) }
-  });
-
-  models.ElectionOffices.hasMany(models.ElectionOfficeCandidates, {as: 'Candidates', foreignKey: 'electionid'});
-
-  models.Votes = db.checkin.define('votes', {
-    id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    uuid :                  { type: Sequelize.UUIDV4 },
-    siteid :                { type: Sequelize.STRING(255) },
-    electionid :            { type: Sequelize.INTEGER },
-    registrantid :          { type: Sequelize.STRING(25) },
-    candidateid :           { type: Sequelize.INTEGER },
-    votertype:              { type: Sequelize.ENUM('management', 'non-management') },
-    datecast :              { type: Sequelize.DATE }
-  });
-
-  models.Printers = db.checkin.define('printers', {
-    id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    conferenceid :          { type: Sequelize.INTEGER(11) },
-    name :                  { type: Sequelize.TEXT },
-    type :                  { type: Sequelize.ENUM('receipt', 'ebadge', 'gbadge', 'other'), default: 'receipt'  },
-    host :                  { type: Sequelize.TEXT },
-    uri :                   { type: Sequelize.TEXT }
-  });
-
-  models.CheckinExhibitorAttendeeNumber = db.checkin.define('exhibitorAttendeeNumber', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    userId :              { type: Sequelize.INTEGER },
-    eventId :             { type: Sequelize.STRING(255) },
-    attendees :           { type: Sequelize.INTEGER }
-  });
-
-  models.CheckinExhibitorAttendees = db.checkin.define('exhibitorAttendees', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    userId :              { type: Sequelize.INTEGER },
-    eventId :             { type: Sequelize.STRING(36) },
-    pin:                  { type: Sequelize.STRING(4) },
-    firstname :           { type: Sequelize.STRING(255) },
-    lastname :            { type: Sequelize.STRING(255) },
-    address :             { type: Sequelize.STRING(255) },
-    address2 :            { type: Sequelize.STRING(255) },
-    city :                { type: Sequelize.STRING(255) },
-    state :               { type: Sequelize.STRING(255) },
-    zip :                 { type: Sequelize.STRING(15) },
-    email :               { type: Sequelize.STRING(255) },
-    phone :               { type: Sequelize.STRING(25) },
-    title :               { type: Sequelize.STRING(255) },
-    organization :        { type: Sequelize.STRING(255) },
-    createdAt :           { type: Sequelize.DATE },
-    updatedAt :           { type: Sequelize.DATE },
-    deletedAt :           { type: Sequelize.DATE },
-    siteId :              { type: Sequelize.STRING(10) }
-  });
-
-  models.Sites = db.checkin.define('siteIds', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    chapter:              { type: Sequelize.INTEGER(6) },
-    memberType:           { type: Sequelize.STRING(255) },
-    company:              { type: Sequelize.STRING(255) },
-    street1:              { type: Sequelize.STRING(255) },
-    street2:              { type: Sequelize.STRING(255) },
-    city:                 { type: Sequelize.STRING(255) },
-    state:                { type: Sequelize.STRING(255) },
-    zipCode:              { type: Sequelize.STRING(255) },
-    joinDate:             { type: Sequelize.DATE },
-    paidDate:             { type: Sequelize.DATE },
-    siteId:               { type: Sequelize.STRING(255) }
-  });
   
-  models.Badges = db.checkin.define('event_badges', {
-    id :                    { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    eventId :               { type: Sequelize.STRING(36) },
-    template :              { type: Sequelize.TEXT }
-  });
-  
-  models.Sites = db.checkin.define('siteIds', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    company:              { type: Sequelize.STRING(255) },
-    street1:              { type: Sequelize.STRING(255) },
-    street2:              { type: Sequelize.STRING(255) },
-    city:                 { type: Sequelize.STRING(255) },
-    state:                { type: Sequelize.STRING(255) },
-    zipCode:              { type: Sequelize.STRING(255) },
-    siteId:               { type: Sequelize.STRING(255) }
-  });
-  
-    models.VotingSites = db.checkin.define('votingSiteIds', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    company:              { type: Sequelize.STRING(255) },
-    street1:              { type: Sequelize.STRING(255) },
-    street2:              { type: Sequelize.STRING(255) },
-    city:                 { type: Sequelize.STRING(255) },
-    state:                { type: Sequelize.STRING(255) },
-    zipCode:              { type: Sequelize.STRING(255) },
-    siteId:               { type: Sequelize.STRING(255) }
-  });
-
-  models.eventLogs = db.checkin.define('eventLogs', {
-    id:                   { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-    eventId:              { type: Sequelize.INTEGER },
-    createdAt :           { type: Sequelize.DATE },
-    updatedAt :           { type: Sequelize.DATE },
-    deletedAt :           { type: Sequelize.DATE }
-  });
-  
-  getPrinter(() => {
-    console.log("got printers");
-  });
   //Initialize Email Client
   transport = email.createTransport(
     {
@@ -616,200 +213,6 @@ exports.initialize = () => {
       args: ["-f noreply@regionvivpp.org"]
     }
   );
-};
-
-const processGroupMembers = (extra, members, registrants, index, cb) => {
-    let sql = "";
-    let member = members[index];
-    let ignoreNames = ["firstname", "lastname"];
-    index = index || 0;
-    let consts = [ 
-      member.event_id,
-      parseInt(member.groupUserId),
-      member.event_id,
-      member.event_id,
-      parseInt(member.groupMemberId),
-      member.event_id,
-      member.event_id,
-      parseInt(member.groupUserId),
-      member.event_id,
-      member.event_id,
-      member.event_id,
-      member.event_id,
-      member.event_id,
-      member.event_id,
-      member.event_id,
-      parseInt(member.groupUserId),
-      member.event_id,
-      member.event_id,
-      member.event_id,
-      parseInt(member.groupUserId),
-      member.event_id,
-      parseInt(member.groupUserId),
-      member.event_id,
-      member.event_id
-    ];
-    sql = " (SELECT 'b'as typeRow, biller_field_values.user_id as userId, biller_field_values.value, event_fields.*"+
-          " FROM biller_field_values"+
-          " JOIN event_fields ON (biller_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE user_id = ? AND biller_field_values.event_id = ?)"+
-          " UNION"+
-          " (SELECT 'g'as typeRow, member_field_values.member_id as userId, member_field_values.value, event_fields.*"+
-          " FROM member_field_values"+
-          " JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE member_id = ? AND member_field_values.event_id = ?) ORDER BY ordering ASC;"+
-          " SELECT biller_field_values.user_id as userId, biller_field_values.value, event_fields.*"+
-          " FROM biller_field_values"+
-          " JOIN event_fields ON (biller_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE user_id = ? AND biller_field_values.event_id = ? ORDER BY ordering ASC;"+
-          " SELECT id, groupUserId, attend, checked_in_time, confirmnum, "+
-          " (SELECT value "+
-          " FROM member_field_values "+
-          " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'firstname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as firstname,"+
-          " (SELECT value "+
-          " FROM member_field_values "+
-          " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'lastname' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as lastname,"+
-          " (SELECT value "+
-          " FROM member_field_values "+
-          " LEFT JOIN event_fields ON (member_field_values.field_id = event_fields.local_id AND event_fields.event_id = ?)"+
-          " WHERE event_fields.event_id = ? AND event_fields.class = 'company' AND member_field_values.member_id = group_members.groupMemberId LIMIT 1) as company"+
-          " FROM group_members"+
-          " WHERE groupUserId = ? AND event_id = ?;"+
-          " SELECT * FROM event_fields WHERE event_id = ? AND badge_order > 0 ORDER BY badge_order ASC;"+
-          " SELECT event_fees.*, biller.transaction_id FROM event_fees LEFT JOIN biller ON event_fees.user_id = biller.user_id WHERE event_fees.event_id = ? AND event_fees.user_id = ? ORDER BY event_fees.id ASC;"+
-          " SELECT * FROM biller WHERE eventId = ? AND userId = ? ORDER BY id ASC;"+
-          " SELECT * FROM event WHERE eventId = ?;"+
-          " SELECT * FROM event_fields WHERE event_id = ? ORDER BY ordering ASC;";
-    if (extra) {
-      sql += " SELECT * FROM transactions WHERE invoiceNumber = ? ORDER BY submitTimeUTC ASC;";
-      consts.push(member.billerConfirm);
-    }
-    //console.log(sql);
-    connection.query(sql, consts, (err, results) => {
-        if (err) { throw err; }
-        if (results[0]) {
-          const ba = [];
-          const exhibitorFields = ["firstname", "lastname", "email", "phone", "title"];
-          const reg = {
-              event: results[6][0],
-              fields: {
-                  userId: results[0][0].userId,
-                  infoField: '',
-                  manageField: '<div class="btn-group"><button class="btn dropdown-toggle" data-toggle="dropdown">Manage <span class="caret"></span></button><ul class="dropdown-menu"><li>'
-              },
-              biller: {
-                  schema:{},
-                  fieldset:[]
-              },
-              badgeFields:[],
-              linked: results[2],
-              payment: results[4],
-              local_id: member.groupMemberId,
-              id: member.id,
-              event_id: member.event_id,
-              registrantId: member.badge_prefix+"-"+member.id,
-              confirmation: member.confirmnum || results[5][0].confirmNum,
-              paid: false,
-              checked_in: member.attend,
-              checked_in_time: member.checked_in_time,
-              schema:{},
-              fieldset:[],
-              firstname: "",
-              lastname: "",
-              company: "",
-              badge_prefix: member.badge_prefix,
-              biller_id: results[5][0].userId
-          };
-          const types = ['Text','Select','TextArea','Checkbox','Select','Text','Text','Text','Text'];
-          if (member.attend) {
-            reg.fields.infoField += '<i class="icon-ok icon-large" style="color: #468847;"></i>';
-            reg.fields.manageField += '<a href="#" class="checkoutRegistrant">Check Out</a>';
-          } else {
-            reg.fields.infoField += '<i class="icon-remove icon-large" style="color: #b94a48;"></i>';
-            reg.fields.manageField += '<a href="#" class="checkinRegistrant">Check In</a>';
-          }
-          reg.fields.manageField += '</li><li class="divider"></li><li><a href="#" class="editRegistrant">Edit</a></li><li><a href="#" class="printBadge">Print Badge</a></li><li><a href="#" class="downloadBadge">Download Badge</a></li><li class="divider"></li><li><a href="#" class="printReceipt">Print Receipt</a></li><li><a href="#" class="viewReceipt">View Receipt</a></li></ul></div>';
-          results[7].forEach((row, index) => {
-            let schemaRow = {
-              "title": row.label,
-              "type": types[row.type]
-            };
-            if (row.values && (row.type === 4 || row.type === 1)) {
-              let values = row.values.split("|");
-              values.unshift("");
-              schemaRow.options = values;
-            }
-            reg.schema["fields."+row.name] = schemaRow;
-            reg.fieldset.push("fields."+row.name);
-          });
-          results[0].forEach((row, index) => {
-            if (row.values && (row.type === 4 || row.type === 1)) {
-              let values = row.values.split("|");
-              reg.fields[row.name] = values[parseInt(row.value)];
-            } else  {
-              reg.fields[row.name] = row.value;
-            }
-
-            if (row.class) {
-              if (underscore.contains(ba, row.class) === false) {
-                reg[row.class] = reg.fields[row.name];
-              }
-            }
-          });
-          results[1].forEach((row, index) => {
-            let schemaRow = {
-              "title": row.label,
-              "type": types[row.type],
-            };
-            if (row.values && (row.type === 4 || row.type === 1)) {
-              let values = row.values.split("|");
-              schemaRow.options = values;
-              reg.biller[row.name] = values[parseInt(row.value)];
-            } else  {
-              reg.biller[row.name] = row.value;
-            }
-            reg.biller.schema[row.name] = schemaRow;
-            reg.biller.fieldset.push(row.name);
-          });
-          results[3].forEach((row, index) => {
-            reg.badgeFields.push(row.class);
-          });
-          results[4].forEach((row, index) => {
-            row.fee = parseFloat(row.fee);
-            row.paid_amount = parseFloat(row.paid_amount);
-            reg.paid = (row.fee > row.paid_amount) ? false : true;
-          });
-
-          reg.linked.forEach((row, index) => {
-            row.badge_prefix = member.badge_prefix;
-            row.company = reg.company;
-            row.confirmation = row.confirmnum || results[5][0].confirmNum;
-          });
-          if (reg.paid) {
-            reg.fields.infoField += '&nbsp; <i class="icon-money icon-large" style="color: #468847;"></i>';
-          } else {
-            reg.fields.infoField += '&nbsp; <i class="icon-money icon-large" style="color: #b94a48;"></i>';
-          }
-          reg.payment = results[4];
-          if (extra) {
-            console.log("credit card");
-            console.log(results[8]);
-            reg.transactions = results[8];
-          }
-          //console.log(reg);
-          registrants[1].push(reg);
-        }
-        index++;
-        //console.log(index);
-        if (members.length >= (index + 1)) {
-          processGroupMembers(extra, members, registrants, index, cb);
-        } else {
-          cb(registrants);
-        }
-    });
-
 };
 
 const createBadge = async (registrant, type) => {
@@ -844,11 +247,12 @@ const createBadge = async (registrant, type) => {
     "state",
     "zip"
   ];
-  const badge = await models.Badges.find({
-    where: {
+  let badge = await knexDb.from('event_badges')
+    .where({
       eventId: registrant.eventId,
-    }
-  });
+    })
+    .catch(e => console.log('db', 'database error', e));
+  badge = badge[0];
   let template = badge.template.toString();
 
   pageBuilder = handlebars.compile(template);
@@ -1410,24 +814,25 @@ const updateTransaction = async (transaction) => {
     email: transaction.customer.email,
   };
 
-  const existTransaction = await dbKnex('transactions')
+  const existTransaction = await knexDb('transactions')
     .where({
       transId: record.transId,
     })
     .catch(e => console.log('db', 'database error', e));
+
   if (existTransaction.length) {
-    results = await dbKnex('transactions')
+    results = await knexDb('transactions')
       .where({ id: existTransaction[0].id })
       .update(record)
       .then(
-        data => dbKnex('transactions').where({ id: existTransaction[0].id }),
+        data => knexDb('transactions').where({ id: existTransaction[0].id }),
       )
       .catch(e => console.log('db', 'database error', e));
   } else {
-    results = await dbKnex('transactions')
+    results = await knexDb('transactions')
       .insert(record)
       .then(
-        data => dbKnex('transactions').where({ id: data[0] }),
+        data => knexDb('transactions').where({ id: data[0] }),
       )
       .catch(e => console.log('db', 'database error', e));
   }
