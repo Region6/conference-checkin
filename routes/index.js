@@ -1,15 +1,9 @@
 /*jshint esversion: 6 */
 const fs = require('fs');
 const path = require('path');
-const mysql = require('mysql');
 const email = require('nodemailer');
-const crypto = require('crypto');
-const spawn = require('child_process').spawn;
-const execFile = require('child_process').execFile;
 const async = require('async');
-const Acl = require('acl');
 const uuidv4 = require('uuid/v4');
-const glob = require('glob');
 const underscore = require('lodash');
 const pdf417 = require('pdf417');
 const ipp = require('ipp');
@@ -23,8 +17,6 @@ const helpers = require('handlebars-helpers')({
 const moment = require('moment-timezone');
 const json2csv = require('json2csv');
 const request = require('request');
-const parser = require('xml2json');
-const parseString = require('xml2js').parseString;
 const pdfjs = require('pdfjs');
 const Bus = require('busmq');
 const { map, props, mapSeries } = require('awaity');
@@ -37,7 +29,6 @@ const font = {
   }
 };
 const knex = require('knex');
-const Sequelize = require("sequelize");
 const svgHeader = fs.readFileSync("./header.svg", "utf8");
 const receipt = fs.readFileSync("./assets/templates/receipt.html", "utf8");
 const Rsvg = require('librsvg-prebuilt').Rsvg;
