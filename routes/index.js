@@ -113,7 +113,6 @@ exports.initialize = () => {
       database : opts.configs.mysql.database,
       port: opts.configs.mysql.port || 3306,
     },
-    debug: ['ComQueryPacket'],
   });
   
   registrants = Registrants.init({
