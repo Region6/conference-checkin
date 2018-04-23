@@ -35,5 +35,6 @@ module.exports = {
   port: process.env.WEB_PORT || settings.port || 3000,
   salt: process.env.SALT || settings.salt || 'key',
   id: process.env.ID || settings.id || 'generated uuid',
+  authToken: process.env.AUTH_TOKEN || settings.authToken || 'generated uuid',
   serviceName: 'CheckinApi',
 };

@@ -6,6 +6,7 @@
 
 const http = require('http');
 const express = require('express');
+const bearerToken = require('express-bearer-token');
 const session = require('express-session');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -23,46 +24,10 @@ const url = require('url');
 
 const config = require('./config');
 let opts = {};
-let configFile;
-let access_logfile;
 
 /*  ==============================================================
     Configuration
 =============================================================== */
-
-//used for session and password hashes
-let salt = '20sdkfjk23';
-
-fs.exists(__dirname + '/tmp', (exists) => {
-  if (!exists) {
-    fs.mkdir(__dirname + '/tmp', (d) => {
-      console.log("temp directory created");
-    });
-  }
-});
-
-if (config.log) {
-  access_logfile = fs.createWriteStream(config.log, {flags: 'a'});
-}
-
-if (config.ssl) {
-  if (config.ssl.key) {
-    opts.key = fs.readFileSync(config.ssl.key);
-  }
-
-  if (config.ssl.cert) {
-    opts.cert = fs.readFileSync(config.ssl.cert);
-  }
-
-  if (config.ssl.ca) {
-    opts.ca = [];
-    config.ssl.ca.forEach(function (ca, index, array) {
-        opts.ca.push(fs.readFileSync(ca));
-    });
-  }
-
-  console.log("Express will listen: https");
-}
 
 if (config.salt) {
   salt = config.salt;
@@ -122,6 +87,7 @@ const apiRouter = express.Router();
 // Express Configuration
 const oneDay = 86400000;
 app.use(require('express-domain-middleware'));
+app.use(bearerToken());
 app.use(compression());
 /**
 if ("log" in config) {
@@ -158,6 +124,20 @@ routes.initialize();
 //Standard Routes
 router.get('/', routes.index);
 app.use('/', router);
+
+//Check Bearer Token
+apiRouter.use((req, res, next) => {
+  const token = req.token;
+
+  if (token === config.authToken) {
+    next();
+  } else {
+    res.status(403).json({
+      success: false,
+      message: 'Failed to authenticate token.'
+    });
+  }
+});
 
 // API:Registrants
 apiRouter.get('/registrants', routes.registrants);
