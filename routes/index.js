@@ -1449,7 +1449,7 @@ const logAction = (uid, objType, objId, modType, desc) => {
       modType: modType,
       description: desc
   };
-  opts.io.emit("talk", logData);
+  // opts.io.emit("talk", logData);
 };
 
 const pad = (num, size) => {
