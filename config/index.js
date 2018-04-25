@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+let key;
 let settings = {
   mysql: {},
   redis: {},
@@ -9,6 +10,11 @@ try {
   settings = require('./settings');
 } catch(e) {
   console.log('no settings.js');
+}
+try {
+  key = require('../key.json');
+} catch(e) {
+  console.log('no key.json');
 }
 // Main server/app configuration
 module.exports = {
@@ -34,7 +40,7 @@ module.exports = {
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID || settings.firebase.projectId || '<PROJECT_ID>',
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL || settings.firebase.clientEmail || 'foo@<PROJECT_ID>.iam.gserviceaccount.com',
-    privateKey: process.env.FIREBASE_PRIVATE_KEY || settings.firebase.privateKey || '-----BEGIN PRIVATE KEY-----\n<KEY>\n-----END PRIVATE KEY-----\n',
+    privateKey: key.private_key || process.env.FIREBASE_PRIVATE_KEY || settings.firebase.privateKey || '-----BEGIN PRIVATE KEY-----\n<KEY>\n-----END PRIVATE KEY-----\n',
     databaseUrl: process.env.FIREBASE_DATABASE_URL || settings.firebase.databaseUrl || 'https://<DATABASE_NAME>.firebaseio.com',
   },
   host: process.env.WEB_HOST || settings.host || 'localhost',
