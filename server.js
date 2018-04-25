@@ -162,8 +162,9 @@ apiRouter.get('/events/:id/fields', routes.getEventFields);
 apiRouter.get('/events/onsite', routes.getOnsiteEvents);
 
 apiRouter.post('/payment', routes.makePayment);
-apiRouter.get('/getNumberCheckedIn', routes.getNumberCheckedIn);
 apiRouter.post('/company/:query', routes.findCompany);
+apiRouter.post('/castVote', routes.castVotes);
+apiRouter.get('/getStats', routes.getStats);
 apiRouter.get('/siteid', routes.findSiteId);
 apiRouter.get('/siteids', routes.getSiteIds);
 apiRouter.get('/votingSite/:query', routes.findVotingSites);
@@ -172,10 +173,10 @@ apiRouter.get('/votingSiteId', routes.findVotingSiteId);
 apiRouter.get('/voter/:voterId', routes.authVoter);
 apiRouter.get('/voter/:voterId/pin/:pin', routes.verifyVoterPin);
 apiRouter.get('/site/:siteId', routes.verifySiteId);
+apiRouter.get('/offices', routes.offices);
+apiRouter.get('/add/device/:token', routes.addDeviceToken);
 apiRouter.put('/voter/voter-type/:voterId', routes.addVoterType);
 apiRouter.delete('/voter/:voterId', routes.logoutVoter);
-apiRouter.post('/castVote', routes.castVotes);
-apiRouter.get('/offices', routes.offices);
 
 app.use('/api', apiRouter);
 

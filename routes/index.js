@@ -1,6 +1,7 @@
 /*jshint esversion: 6 */
 const fs = require('fs');
 const path = require('path');
+const admin = require('firebase-admin');
 const email = require('nodemailer');
 const async = require('async');
 const uuidv4 = require('uuid/v4');
@@ -103,6 +104,15 @@ exports.initialize = () => {
 
   merchantAuthenticationType.setName(opts.configs.authorizenet.id);
   merchantAuthenticationType.setTransactionKey(opts.configs.authorizenet.key);
+
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: opts.configs.firebase.projectId,
+      clientEmail: opts.configs.firebase.clientEmail,
+      privateKey: opts.configs.firebase.privateKey,
+    }),
+    databaseURL: opts.configs.firebase.databaseUrl
+  });
 
   knexDb = knex({
     client: 'mysql2',
@@ -639,16 +649,6 @@ exports.updateRegistrant = async (req, res) =>  {
   const values = req.body;
   let registrant;
 
-  sendMessage(
-    'updateRegistrantValues', 
-    {
-      type,
-      registrantId,
-      id,
-      values
-    }
-  );
-
   if (type === "status") {
     registrant = await registrants.updateAttendee(
       registrantId,
@@ -670,6 +670,20 @@ exports.updateRegistrant = async (req, res) =>  {
     );
     logAction(null, "registrant", id, "updated", "Registrant updated");
   }
+
+  sendFCM(
+    'updateRegistrant', 
+    {
+      registrant
+    }
+  );
+  const count = await registrants.getCheckedInCount();
+  sendFCM(
+    'stats', 
+    {
+      count
+    }
+  );
 
   sendBack(res, registrant, 200);
 };
@@ -781,26 +795,26 @@ const updateTransaction = async (transaction) => {
   let results;
   const record = {
     transId: transaction.transId,
-    submitTimeUTC: moment.tz(transaction.submitTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss'),
-    submitTimeLocal: moment(transaction.submitTimeLocal).format('YYYY-MM-DD HH:mm:ss'),
-    transactionType: transaction.transactionType,
-    transactionStatus: transaction.transactionStatus,
-    responseCode: transaction.responseCode,
-    responseReasonCode: transaction.responseReasonCode,
-    responseReasonDescription: transaction.responseReasonDescription,
-    authCode: transaction.authCode,
-    AVSResponse: transaction.AVSResponse,
-    cardCodeResponse: transaction.cardCodeResponse,
-    batchId: transaction.batch.batchId,
-    settlementTimeUTC: moment.tz(transaction.batch.settlementTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss'),
-    settlementTimeLocal: moment(transaction.batch.settlementTimeLocal).format('YYYY-MM-DD HH:mm:ss'),
-    invoiceNumber: transaction.order.invoiceNumber,
-    customerId: ('id' in transaction.customer) ? transaction.customer.id : null,
-    authAmount: transaction.authAmount,
-    settleAmount: transaction.settleAmount,
+    submitTimeUTC: (transaction.submitTimeUTC) ? moment.tz(transaction.submitTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss') : null,
+    submitTimeLocal: (transaction.submitTimeLocal) ? moment(transaction.submitTimeLocal).format('YYYY-MM-DD HH:mm:ss') : null,
+    transactionType: (transaction.transactionType) ? transaction.transactionType : null,
+    transactionStatus:(transaction.transactionStatus) ? transaction.transactionStatus : null,
+    responseCode: (transaction.responseCode) ? transaction.responseCode : null,
+    responseReasonCode: (transaction.responseReasonCode) ? transaction.responseReasonCode : null,
+    responseReasonDescription: (transaction.responseReasonDescription) ? transaction.responseReasonDescription : null,
+    authCode: (transaction.authCode) ? transaction.authCode : null,
+    AVSResponse: (transaction.AVSResponse) ? transaction.AVSResponse : null,
+    cardCodeResponse: (transaction.cardCodeResponse) ? transaction.cardCodeResponse : null,
+    batchId: (transaction.batch && transaction.batch.batchId) ? transaction.batch.batchId : null,
+    settlementTimeUTC: (transaction.batch && transaction.batch.settlementTimeUTC) ? moment.tz(transaction.batch.settlementTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss') : null,
+    settlementTimeLocal: (transaction.batch && transaction.batch.settlementTimeLocal) ? moment(transaction.batch.settlementTimeLocal).format('YYYY-MM-DD HH:mm:ss') : null,
+    invoiceNumber: (transaction.order && transaction.order.invoiceNumber) ? transaction.order.invoiceNumber : null,
+    customerId: (transaction.customer && 'id' in transaction.customer) ? transaction.customer.id : null,
+    authAmount: (transaction.authAmount) ? transaction.authAmount : null,
+    settleAmount: (transaction.settleAmount) ? transaction.settleAmount : null,
     cardNumber: (transaction.payment && transaction.payment.creditCard) ? transaction.payment.creditCard.cardNumber : null,
     cardType: (transaction.payment && transaction.payment.creditCard) ? transaction.payment.creditCard.cardType : null,
-    email: transaction.customer.email,
+    email: (transaction.customer && transaction.customer.email) ? transaction.customer.email : null,
   };
 
   const existTransaction = await knexDb('transactions')
@@ -837,12 +851,22 @@ exports.makePayment = async (req, res) =>  {
     /** update/insert */
     const results = await registrants.saveCheckTransaction(values);
   } else if (values.type !== "check") {
-    var paymentType = new ApiContracts.PaymentType();
-    if (values.transaction.track && values.transaction.track.length) {
+    let retailInfoType;
+    const paymentType = new ApiContracts.PaymentType();
+    if (values.transaction.trackOne || values.transaction.trackTwo) {
       const trackData = new ApiContracts.CreditCardTrackType();
-      trackData.setTrack1(values.transaction.track[0]);
-      trackData.setTrack2(values.transaction.track[1]);
+      if (values.transaction.trackOne) {
+        trackData.setTrack1(values.transaction.trackOne);
+      }
+      if (values.transaction.trackTwo) {
+        trackData.setTrack2(values.transaction.trackTwo);
+      }
       paymentType.setTrackData(trackData);
+
+      retailInfoType = new ApiContracts.TransRetailInfoType();
+      retailInfoType.marketType = 2;
+      retailInfoType.deviceType = 5;
+
       /*
       transaction.transactionRequest.retail = {
         marketType: 2,
@@ -878,13 +902,21 @@ exports.makePayment = async (req, res) =>  {
     transactionRequestType.setOrder(orderDetails);
     transactionRequestType.setBillTo(billTo);
     transactionRequestType.setCustomer(customer);
+    if (retailInfoType) {
+      transactionRequestType.setRetail(retailInfoType);
+    }
 
     const createRequest = new ApiContracts.CreateTransactionRequest();
     createRequest.setMerchantAuthentication(merchantAuthenticationType);
     createRequest.setTransactionRequest(transactionRequestType);
     try {
       const transaction = await authorizeTransaction(createRequest);
-      const details = await getTransaction(transaction);
+      let details;
+      if (opts.configs.authorizenet.sandbox) {
+        details = transaction;
+      } else {
+        details = await getTransaction(transaction);
+      }
       if (details) {
         const results = await updateTransaction(details);
         data = results;
@@ -1030,7 +1062,7 @@ const _makePayment = (values, remote, callback) => {
   }
 };
 
-exports.getNumberCheckedIn = async (req, res) =>  {
+exports.getStats = async (req, res) =>  {
   const count = await registrants.getCheckedInCount();
   sendBack(res, count, 200);
 };
@@ -1293,6 +1325,12 @@ exports.offices = async (req, res) =>  {
   sendBack(res, offices, 200);
 };
 
+exports.addDeviceToken = async (req, res) =>  {
+  const token = req.params.token;
+  const response = await subscribeFcmTopic(token);
+  sendBack(res, response, 200);
+};
+
 const updateCheckedIn = async () => {
   const count = await registrants.getCheckedInCount();
 
@@ -1450,6 +1488,46 @@ const logAction = (uid, objType, objId, modType, desc) => {
   };
   // opts.io.emit("talk", logData);
 };
+
+const subscribeFcmTopic = async (token) => {
+  const topic = 'region-6-updates';
+  const tokens = [token];
+
+  let response;
+  // Send a message to devices subscribed to the provided topic.
+  try {
+    response = await admin.messaging().subscribeToTopic(tokens, topic);
+  } catch(e) {
+    console.log('Error sending message:', e);
+    response = e;
+  }
+
+  return response;
+} 
+
+const sendFCM = async (type, payload) => {
+  // The topic name can be optionally prefixed with "/topics/".
+  const topic = 'region-6-updates';
+
+  // See documentation on defining a message payload.
+  const message = {
+    data: {
+      type,
+      payload: JSON.stringify(payload),
+    },
+    topic: topic
+  };
+
+  let response;
+  // Send a message to devices subscribed to the provided topic.
+  try {
+    response = await admin.messaging().send(message);
+  } catch(e) {
+    console.log('Error sending message:', e);
+  }
+
+  return response;
+}
 
 const pad = (num, size) => {
   const s = num + "";

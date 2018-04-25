@@ -31,6 +31,12 @@ module.exports = {
     key: process.env.AUTHORIZENET_KEY || settings.authorizenet.key || 'authorizenet key',
     sandbox: process.env.AUTHORIZENET_SANDBOX || settings.authorizenet.sandbox || false,
   },
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID || settings.firebase.projectId || '<PROJECT_ID>',
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || settings.firebase.clientEmail || 'foo@<PROJECT_ID>.iam.gserviceaccount.com',
+    privateKey: process.env.FIREBASE_PRIVATE_KEY || settings.firebase.privateKey || '-----BEGIN PRIVATE KEY-----\n<KEY>\n-----END PRIVATE KEY-----\n',
+    databaseUrl: process.env.FIREBASE_DATABASE_URL || settings.firebase.databaseUrl || 'https://<DATABASE_NAME>.firebaseio.com',
+  },
   host: process.env.WEB_HOST || settings.host || 'localhost',
   port: process.env.WEB_PORT || settings.port || 3000,
   salt: process.env.SALT || settings.salt || 'key',
