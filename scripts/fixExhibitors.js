@@ -29,6 +29,7 @@ const updateReg = async (reg) => {
     .catch(e => console.log('db', 'database error', e));
   if (exhibitor.length) {
     reg.confirmation = exhibitor[0].confirmation;
+    reg.groupConfirm = exhibitor[0].confirmation;
   }
   const result = await db('onsiteAttendees')
     .where({ id: reg.id })

@@ -6,6 +6,7 @@ const email = require('nodemailer');
 const async = require('async');
 const uuidv4 = require('uuid/v4');
 const underscore = require('lodash');
+const gpc = require('generate-pincode');
 const pdf417 = require('pdf417');
 const ipp = require('ipp');
 const handlebars = require('handlebars');
@@ -15,11 +16,14 @@ const SDKConstants = require('authorizenet').Constants;
 const helpers = require('handlebars-helpers')({
   handlebars: handlebars
 });
+const csvjson = require('csvtojson')
 const moment = require('moment-timezone');
 const json2csv = require('json2csv');
 const request = require('request');
 const pdfjs = require('pdfjs');
 const Bus = require('busmq');
+const pnf = require('google-libphonenumber').PhoneNumberFormat;
+const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
 const { map, props, mapSeries } = require('awaity');
 const notoSansRegular = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans.ttf'));
 const notoSansBold = fs.readFileSync(path.join(__dirname, '../vendors/fonts/NotoSans-Bold.ttf'));
@@ -36,6 +40,28 @@ const Registrants = require("node-registrants");
 const shortid = require('shortid');
 
 const merchantAuthenticationType = new ApiContracts.MerchantAuthenticationType();
+const mappings = {
+  general: {
+    "dtl_r_last_name": "lastname",
+    "dtl_r_first_name": "firstname",
+    "dtl_r_email": "email",
+    "dtl_r_company": "organization",
+    "dtl_r_title": "title",
+    "dtl_r_work_address": "address",
+    "dtl_r_work_city": "city",
+    "dtl_r_work_state_prov": "state",
+    "dtl_r_work_zip_postal_code": "zip",
+    "dtl_cf1001": "phone",
+    "dtl_r_primary_registrant_confirmation": "confirmation",
+    "dtl_cpC76CB6": "management",
+    "dtl_cpD09F43": "siteId",
+    "dtl_r_original_response_date": "createdAt",
+    "dtl_r_group_confirm_num": "groupConfirm",
+  },
+  exhibitor: {
+
+  }
+};
 
 let registrants;
 let nextBadgePrinter = 0;
@@ -45,6 +71,7 @@ let printerUrl = {
   "ebadge": [],
   "gbadge": []
 };
+let dupSiteIdField = "dtl_cpC01E7D";
 let connection = null;
 let client = null;
 let transport = null;
@@ -394,13 +421,17 @@ exports.registrants = async (req, res) => {
 
 exports.searchRegistrants = async (req, res) => {
   let filters = req.body.filters;
+  let sorting = req.body.sorting;
+  let exhibitors = req.body.exhibitors;
   let page = req.body.page;
   let limit = req.body.limit;
 
   const results = await registrants.searchAttendees2(
     filters,
     page,
-    limit
+    limit,
+    sorting,
+    exhibitors,
   );
 
   sendBack(res, results, 200);
@@ -690,7 +721,7 @@ exports.updateRegistrant = async (req, res) =>  {
 
 exports.addRegistrant = async (req, res) =>  {
   let values = req.body;
-  sendMessage('addRegistrant', { values });
+  // sendMessage('addRegistrant', { values });
   const registrant = await registrants.initRegistrant(values);
   sendBack(res, registrant, 200);
 };
@@ -769,8 +800,10 @@ const getTransaction = (trans) => {
   return new Promise((resolve, reject) => {
     let retVal;
     const getRequest = new ApiContracts.GetTransactionDetailsRequest();
-	  getRequest.setMerchantAuthentication(merchantAuthenticationType);
-	  getRequest.setTransId(trans.transId);
+    getRequest.setMerchantAuthentication(merchantAuthenticationType);
+    const transId = (trans.transactionId) ? trans.transactionId : trans.transId;
+    getRequest.setTransId(transId);
+    //getRequest.setRefId(trans.journalNumber);
 	  const ctrl = new ApiControllers.GetTransactionDetailsController(getRequest.getJSON());
     if (!opts.configs.authorizenet.sandbox) {
       ctrl.setEnvironment(SDKConstants.endpoint.production);
@@ -791,8 +824,21 @@ const getTransaction = (trans) => {
   });
 }
 
-const updateTransaction = async (transaction) => {
+const updateTransaction = async (transaction, registrant) => {
   let results;
+  const createdAt = moment().format('YYYY-MM-DD HH:mm:ss');
+  const regTransRecord = {
+    confirmation: registrant.confirmation,
+    journalNumber: shortid.generate(),
+    type: 'credit',
+    transactionId: transaction.transId,
+    checkNumber: null,
+    amount: (transaction.authAmount) ? transaction.authAmount : null,
+    front: null,
+    back: null,
+    createdAt,
+  };
+
   const record = {
     transId: transaction.transId,
     submitTimeUTC: (transaction.submitTimeUTC) ? moment.tz(transaction.submitTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss') : null,
@@ -809,6 +855,7 @@ const updateTransaction = async (transaction) => {
     settlementTimeUTC: (transaction.batch && transaction.batch.settlementTimeUTC) ? moment.tz(transaction.batch.settlementTimeUTC, 'UTC').format('YYYY-MM-DD HH:mm:ss') : null,
     settlementTimeLocal: (transaction.batch && transaction.batch.settlementTimeLocal) ? moment(transaction.batch.settlementTimeLocal).format('YYYY-MM-DD HH:mm:ss') : null,
     invoiceNumber: (transaction.order && transaction.order.invoiceNumber) ? transaction.order.invoiceNumber : null,
+    description: (transaction.order && transaction.order.description) ? transaction.order.description : null,
     customerId: (transaction.customer && 'id' in transaction.customer) ? transaction.customer.id : null,
     authAmount: (transaction.authAmount) ? transaction.authAmount : null,
     settleAmount: (transaction.settleAmount) ? transaction.settleAmount : null,
@@ -816,6 +863,29 @@ const updateTransaction = async (transaction) => {
     cardType: (transaction.payment && transaction.payment.creditCard) ? transaction.payment.creditCard.cardType : null,
     email: (transaction.customer && transaction.customer.email) ? transaction.customer.email : null,
   };
+
+  const existRegTransaction = await knexDb('registrantTransactions')
+    .where({
+      transactionId: record.transId,
+    })
+    .catch(e => console.log('db', 'database error', e));
+
+  if (existRegTransaction.length) {
+    results = await knexDb('registrantTransactions')
+      .where({ id: existRegTransaction[0].id })
+      .update(regTransRecord)
+      .then(
+        data => knexDb('registrantTransactions').where({ id: existRegTransaction[0].id }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  } else {
+    results = await knexDb('registrantTransactions')
+      .insert(regTransRecord)
+      .then(
+        data => knexDb('registrantTransactions').where({ id: data[0] }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  }
 
   const existTransaction = await knexDb('transactions')
     .where({
@@ -885,6 +955,7 @@ exports.makePayment = async (req, res) =>  {
 
     const orderDetails = new ApiContracts.OrderType();
     orderDetails.setInvoiceNumber(values.registrant.confirmation);
+    orderDetails.setDescription(values.registrant.registrantId);
 
     const billTo = new ApiContracts.CustomerAddressType();
     billTo.setFirstName(values.registrant.firstname);
@@ -918,9 +989,18 @@ exports.makePayment = async (req, res) =>  {
         details = await getTransaction(transaction);
       }
       if (details) {
-        const results = await updateTransaction(details);
+        const results = await updateTransaction(details, values.registrant);
         data = results;
       }
+      const reg = await registrants.searchAttendees2(
+        [{
+          columnName: 'displayId',
+          value: values.registrant.displayId,
+        }],
+        0,
+        1
+      );
+      data = reg[0];
     } catch(e) {
       data = e;
       statusCode = 500;
@@ -1062,6 +1142,25 @@ const _makePayment = (values, remote, callback) => {
   }
 };
 
+exports.downloadTransactions = async (req, res) => {
+  let results;
+  const transactions = await knexDb('registrantTransactions')
+    .whereNot(
+      {
+        type: 'check',
+        transactionId: '',
+      }
+    )
+    .catch(e => console.log('db', 'database error', e));
+  if (transactions.length) {
+    const details = await map(transactions, getTransaction);
+    // console.log(details);
+    results = await map(details, updateTransaction);
+  }
+   
+  sendBack(res, results, 200);
+}
+
 exports.getStats = async (req, res) =>  {
   const count = await registrants.getCheckedInCount();
   sendBack(res, count, 200);
@@ -1105,6 +1204,194 @@ exports.downloadCheckedInAttendees = async (req, res) =>  {
     }
   );
 };
+
+exports.countAttendees = async (req, res) => {
+  const exhibitor = (req.params.type === 'exhibitors') ? 1 : 0;
+  const results = await knexDb('onsiteAttendees')
+    .count('id as total')
+    .where({
+      exhibitor,
+    })
+    .catch(e => console.log('db', 'database error', e));
+
+    sendBack(res, results, 200);
+}
+
+const updateRegistrant = async (registrant) => {
+  let results;
+  const where = {
+    confirmation: registrant.confirmation
+  };
+
+  let phoneNumber;
+  let f_val;
+  let np;
+  console.log(registrant.phone);
+  f_val = registrant.phone.toString();
+  f_val = f_val.replace(/\D/g,'').slice(0,10);
+  np = f_val.slice(0,3)+"-"+f_val.slice(3,6)+"-"+f_val.slice(6);
+  console.log(np);
+  
+  try {
+    phoneNumber = phoneUtil.parse(np, 'US');
+    console.log(phoneUtil.format(phoneNumber, pnf.NATIONAL));
+    registrant.phone = phoneUtil.format(phoneNumber, pnf.NATIONAL);
+  }
+  catch (e) {
+    console.log(e);
+    phoneNumber = null;
+  }
+  
+  const reg = await knexDb.from('onsiteAttendees')
+    .where(where)
+    .catch(e => console.log('db', 'database error', e));
+
+  if (reg.length) {
+    console.log("Found record", registrant.confirmation);
+    results = await knexDb('onsiteAttendees')
+      .where({ id: reg[0].id })
+      .update(registrant)
+      .then(
+        data => knexDb('onsiteAttendees').where({ id: reg[0].id }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  } else {
+    console.log("New record", registrant.confirmation);
+    registrant.pin = gpc(4);
+    results = await knexDb('onsiteAttendees')
+      .insert(registrant)
+      .then(
+        data => knexDb('onsiteAttendees').where({ id: data[0] }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  }
+
+  return results;
+};
+
+const processRegs = async (results) => {
+  //console.log(results);
+  let registrants = [];
+  results.forEach((reg, index) => {
+    let record = {}
+    for (let prop in mappings.general) {
+      const key = mappings.general[prop];
+      if (mappings.general[prop] === "siteId") {
+        let siteId = (reg[dupSiteIdField]) ? parseInt(reg[dupSiteIdField], 10) : parseInt(reg[prop], 10);
+        //console.log(siteId);
+        if (Number.isInteger(siteId)) {
+          record[key] = pad(siteId, 6);
+        } else {
+          record[key] = null;
+        }
+      } else if(mappings.general[prop] === "management") {
+        let management = (reg[prop] === "Yes") ? true : false;
+        record[key] = management;
+      } else if(mappings.general[prop] === "createdAt") {
+        let regDate = (reg[prop].length) ? moment.tz(reg[prop], "DD-MMM-YYYY h:mmA", "America/Chicago") : moment();
+        let created = (regDate.isValid()) ? regDate.format("YYYY-MM-DD HH:mm:ss") : moment().format("YYYY-MM-DD HH:mm:ss");
+        record[key] = created;
+        record.updatedAt = created;
+      } else {
+        record[key] = reg[prop];
+      }
+    }
+    /*
+    record.eventId = eventIds[reg["Registration Path"]];
+    if (reg["Registration Path"] === "") {
+      record.eventId = "f4f1fc6a-0709-11e6-9571-53e72e0ba997";
+    }
+    */
+    record.eventId = "f4f1fc6a-0709-11e6-9571-53e72e0ba997";
+    if (reg["dtl_r_registration_type"] === "Workshop Presenter") {
+      record.speaker = 1;
+    } else if (reg["dtl_r_registration_type"] === "OSHA Employee") {
+      record.osha = 1;
+    }
+    
+    if (reg["dtl_r_status"] === "Cancelled") {
+      let deleted = moment.tz(reg["dtl_r_original_response_date"], "DD-MMM-YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
+      // record.deletedAt = deleted;
+    } else {
+      record.deletedAt = null;
+    }
+    registrants.push(record);
+  });
+  
+  const res = await map(registrants, updateRegistrant);
+  return res
+};
+
+const updateImportedTransaction = async (trans) => {
+  let results;
+  let record = {
+    id: null,
+    confirmation: trans['Primary Registrant Confirmation #'],
+    journalNumber: trans['Journal Number'],
+    type: (trans['Payment Method'] === 'Check' || trans['Payment Method'] === 'Bank Transfer') ? 'check' : 'credit',
+    transactionId: trans['Transaction ID'],
+    checkNumber: null,
+    amount: trans['Amount'],
+    createdAt: moment.tz(trans["Transaction Date (GMT)"]).format("YYYY-MM-DD HH:mm:ss"),
+    updatedAt: moment.tz(trans["Transaction Date (GMT)"]).format("YYYY-MM-DD HH:mm:ss"),
+  };
+  const regTransaction = await knexDb('registrantTransactions')
+    .where({
+      confirmation: trans['Primary Registrant Confirmation #'],
+    })
+    .catch(e => console.log('db', 'database error', e));
+  if (regTransaction.length) {
+    record.id = regTransaction[0].id;
+    results = await knexDb('registrantTransactions')
+      .where({ id: regTransaction[0].id })
+      .update(record)
+      .then(
+        data => knexDb('registrantTransactions').where({ id: regTransaction[0].id }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  } else {
+    results = await knexDb('registrantTransactions')
+      .insert(record)
+      .then(
+        data => knexDb('registrantTransactions').where({ id: data[0] }),
+      )
+      .catch(e => console.log('db', 'database error', e));
+  }
+  
+  let result = (results.length) ? results[0] : null;
+  return result;
+};
+
+
+const processTransactions = async (transactions) => {
+  const results = await map(transactions, updateImportedTransaction);
+  return results;
+}
+
+
+exports.importData = async (req, res) => {
+  let results = [];
+  const finish = async () => {
+    if (req.params.type === 'registrants') {
+      results = await processRegs(results);
+    } else if (req.params.type === 'transactions') {
+      results = await processTransactions(results);
+    }
+    sendBack(res, results, 200);
+  };
+  const data = req.files.file.data.toString('utf8');
+  console.log(data);
+  csvjson()
+  .fromString(data)
+  .on('json', (jsonObj) => {
+    results.push(jsonObj);
+    console.log(jsonObj);
+  })
+  .on('done',(error) => {
+    finish();
+  });
+  
+}
 
 exports.getSiteIds = async (req, res) =>  {
   const siteids = await knexDb.from('siteIds')
@@ -1530,7 +1817,7 @@ const sendFCM = async (type, payload) => {
 }
 
 const pad = (num, size) => {
-  const s = num + "";
+  let s = num + "";
   while (s.length < size) { s = "0" + s; }
   return s;
 };

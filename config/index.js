@@ -15,6 +15,7 @@ try {
   key = require('../key.json');
 } catch(e) {
   console.log('no key.json');
+  key = {};
 }
 // Main server/app configuration
 module.exports = {

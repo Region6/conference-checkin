@@ -21,6 +21,7 @@ const nconf = require('nconf');
 const path = require('path');
 const redis = require("redis");
 const url = require('url');
+const fileUpload = require('express-fileupload');
 
 const config = require('./config');
 let opts = {};
@@ -95,6 +96,7 @@ if ("log" in config) {
 }
 **/
 app.use(cookieParser());
+app.use(fileUpload());
 app.use(express.static(__dirname + '/public'));     // set the static files location
 app.use('/css', express.static(__dirname + '/public/css'));
 app.use('/js', express.static(__dirname + '/public/js'));
@@ -177,6 +179,10 @@ apiRouter.get('/offices', routes.offices);
 apiRouter.get('/add/device/:token', routes.addDeviceToken);
 apiRouter.put('/voter/voter-type/:voterId', routes.addVoterType);
 apiRouter.delete('/voter/:voterId', routes.logoutVoter);
+
+apiRouter.get('/transactions/download', routes.downloadTransactions);
+apiRouter.post('/import/:type', routes.importData);
+apiRouter.get('/census/:type', routes.countAttendees);
 
 app.use('/api', apiRouter);
 
