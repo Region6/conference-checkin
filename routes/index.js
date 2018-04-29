@@ -919,7 +919,16 @@ exports.makePayment = async (req, res) =>  {
   let statusCode = 200;
   if (values.type === "check") {
     /** update/insert */
-    const results = await registrants.saveCheckTransaction(values);
+    const result = await registrants.saveCheckTransaction(values);
+    const reg = await registrants.searchAttendees2(
+      [{
+        columnName: 'displayId',
+        value: values.registrant.displayId,
+      }],
+      0,
+      1
+    );
+    data = reg[0];
   } else if (values.type !== "check") {
     let retailInfoType;
     const paymentType = new ApiContracts.PaymentType();
@@ -1398,6 +1407,13 @@ exports.getSiteIds = async (req, res) =>  {
     .orderBy('company', 'ASC')
     .catch(e => console.log('db', 'database error', e));
   sendBack(res, siteids, 200);
+};
+
+exports.getUserIds = async (req, res) =>  {
+  const userIds = await knexDb.from('exhibitors')
+    .orderBy('organization', 'ASC')
+    .catch(e => console.log('db', 'database error', e));
+  sendBack(res, userIds, 200);
 };
 
 exports.findSiteId = async (req, res) =>  {
