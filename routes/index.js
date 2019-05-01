@@ -42,27 +42,28 @@ const shortid = require('shortid');
 const merchantAuthenticationType = new ApiContracts.MerchantAuthenticationType();
 const mappings = {
   general: {
-    "dtl_r_last_name": "lastname",
-    "dtl_r_first_name": "firstname",
-    "dtl_r_email": "email",
-    "dtl_r_company": "organization",
-    "dtl_r_title": "title",
-    "dtl_r_work_address": "address",
-    "dtl_r_work_city": "city",
-    "dtl_r_work_state_prov": "state",
-    "dtl_r_work_zip_postal_code": "zip",
-    "dtl_cf1001": "phone",
-    "dtl_r_primary_registrant_confirmation": "confirmation",
-    "dtl_cpC76CB6": "management",
-    "dtl_cpD09F43": "siteId",
-    "dtl_r_original_response_date": "createdAt",
-    "dtl_r_group_confirm_num": "groupConfirm",
+    "Last Name": "lastname",
+    "First Name": "firstname",
+    "Email Address": "email",
+    "Company Name": "organization",
+    "Title": "title",
+    "Work Address": "address",
+    "Work City": "city",
+    "Work State/Prov": "state",
+    "Work ZIP/Postal Code": "zip",
+    "wphone": "phone",
+    "Confirmation Number": "confirmation",
+    "Managment?": "management",
+    "Enter your 6-8 digit VPPPA Member ID": "siteId",
+    "Created Date (GMT)": "createdAt",
+    "Group Confirmation Number": "groupConfirm",
   },
   exhibitor: {
 
   }
 };
-
+const registrationType = "Registration Type";
+let dupSiteIdField = "Enter your 6-8 digit VPPPA Member ID 2";
 let registrants;
 let nextBadgePrinter = 0;
 let opts = {};
@@ -71,7 +72,7 @@ let printerUrl = {
   "ebadge": [],
   "gbadge": []
 };
-let dupSiteIdField = "dtl_cpC01E7D";
+
 let connection = null;
 let client = null;
 let transport = null;
@@ -100,6 +101,11 @@ const sendMessage = (type, payload) => {
     payload: payload,
   };
   queue.push(message);
+};
+
+const truncate = async (table) => {
+  const ret = await knexDb.raw(`TRUNCATE TABLE ${table};`);
+  return ret;
 };
 
 // Swag.registerHelpers(handlebars);
@@ -701,7 +707,8 @@ exports.updateRegistrant = async (req, res) =>  {
     );
     logAction(null, "registrant", id, "updated", "Registrant updated");
   }
-
+  
+  /*
   sendFCM(
     'updateRegistrant', 
     {
@@ -715,7 +722,7 @@ exports.updateRegistrant = async (req, res) =>  {
       count
     }
   );
-
+  */
   sendBack(res, registrant, 200);
 };
 
@@ -1297,10 +1304,12 @@ const processRegs = async (results) => {
         let management = (reg[prop] === "Yes") ? true : false;
         record[key] = management;
       } else if(mappings.general[prop] === "createdAt") {
-        let regDate = (reg[prop].length) ? moment.tz(reg[prop], "DD-MMM-YYYY h:mmA", "America/Chicago") : moment();
+        let regDate = (reg[prop].length) ? moment.tz(reg[prop], "DD-MMM-YYYY h:mmA") : moment();
         let created = (regDate.isValid()) ? regDate.format("YYYY-MM-DD HH:mm:ss") : moment().format("YYYY-MM-DD HH:mm:ss");
         record[key] = created;
         record.updatedAt = created;
+      } else if(key === "state") {
+        record[key] = reg[prop][""];
       } else {
         record[key] = reg[prop];
       }
@@ -1312,14 +1321,14 @@ const processRegs = async (results) => {
     }
     */
     record.eventId = "f4f1fc6a-0709-11e6-9571-53e72e0ba997";
-    if (reg["dtl_r_registration_type"] === "Workshop Presenter") {
+    if (reg[registraionType] === "Workshop Presenter") {
       record.speaker = 1;
-    } else if (reg["dtl_r_registration_type"] === "OSHA Employee") {
+    } else if (reg[registrationType] === "OSHA Employee") {
       record.osha = 1;
     }
     
-    if (reg["dtl_r_status"] === "Cancelled") {
-      let deleted = moment.tz(reg["dtl_r_original_response_date"], "DD-MMM-YYYY h:mmA", "America/Chicago").format("YYYY-MM-DD HH:mm:ss");
+    if (reg["Invitee Status"] === "Cancelled") {
+      let deleted = moment.tz(reg["Last Registration Date (GMT)"], "DD-MMM-YYYY h:mmA").format("YYYY-MM-DD HH:mm:ss");
       // record.deletedAt = deleted;
     } else {
       record.deletedAt = null;
@@ -1480,25 +1489,33 @@ exports.authVoter = async (req, res) =>  {
     .where({ registrantid: normalizedId })
     .catch(e => console.log('db', 'database error', e));
 
-  if (vote === null) {
-    const member = await registrants.getAttendee(normalizedId);
-    if ("id" in member) {
+  if (!vote.length) {
+    const filters = [{
+      columnName: 'displayId',
+      value: normalizedId,
+    }];
+    const member = await registrants.searchAttendees2(
+      filters,
+      0,
+      1,
+    );
+    if (member.length && "id" in member[0]) {
       //console.log("member", member);
-      member.siteId = ("siteid" in member) ? member.siteid : member.siteId;
-      if (member.siteId !== "") {
-        const site = await getVotingSiteInfo(member.siteId);
-        member.voterType = null;
-        member.votes = [];
-        site = (site) ? site.toJSON() : {};
-        member.site = site;
-        member.registrantId = normalizedId;
-        sendBack(res, member, 200);
+      member[0].siteId = ("siteid" in member[0]) ? member[0].siteid : member[0].siteId;
+      if (member[0].siteId !== "") {
+        let site = await getVotingSiteInfo(member[0].siteId);
+        member[0].voterType = null;
+        member[0].votes = [];
+        site = (site.length) ? site[0] : {};
+        member[0].site = site;
+        member[0].registrantId = normalizedId;
+        sendBack(res, member[0], 200);
       } else {
-        member.voterType = null;
-        member.votes = [];
-        member.registrantId = normalizedId;
-        member.site = {};
-        sendBack(res, member, 200);
+        member[0].voterType = null;
+        member[0].votes = [];
+        member[0].registrantId = normalizedId;
+        member[0].site = {};
+        sendBack(res, member[0], 200);
       }
     } else {
       errorMsg.message.response = "No record of that registrant id exists.";
@@ -1544,14 +1561,15 @@ exports.logoutVoter = (req, res) =>  {
 };
 
 exports.verifySiteId = async (req, res) =>  {
+  let retVal = [];
   const siteId = req.params.siteId;
-  const site = await getVotingSiteInfo(siteId);
-  if (site) {
-    site = site.toJSON();
-    const voters = await getSiteVoters(site.siteId);
-    site.voters = voters;
+  let site = await getVotingSiteInfo(siteId);
+  if (site.length) {
+    retVal = site[0];
+    const voters = await getSiteVoters(retVal.siteId);
+    retVal.voters = voters;
   }
-  sendBack(res, site, 200);
+  sendBack(res, retVal, 200);
 };
 
 exports.addVoterType = (req, res) =>  {
@@ -1581,12 +1599,12 @@ exports.castVotes = async (req, res) =>  {
     vote.candidateid = vote.id;
     */
     /** update/insert */
-    const result = await this.knex('votes')
+    const result = await knexDb('votes')
       .insert(vote)
       .then(
-        data => self.knex('votes').where({ id: data[0] }),
+        data => knexDb('votes').where({ id: data[0] }),
       )
-      .catch(e => error('db', 'database error', e));
+      .catch(e => console.log('db', 'database error', e));
     
     return result;
   };
@@ -1595,7 +1613,7 @@ exports.castVotes = async (req, res) =>  {
     .where({ registrantid: user.registrantId })
     .catch(e => console.log('db', 'database error', e));
 
-  if (vote.length) {
+  if (vote && vote.length) {
     msg.status = 'error'
     msg.message.response = "You have already voted.";
     status = 401;
