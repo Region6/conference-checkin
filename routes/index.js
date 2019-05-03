@@ -1436,9 +1436,9 @@ exports.findSiteId = async (req, res) =>  {
 
 exports.findVotingSiteId = async (req, res) =>  {
   const query = req.query.search;
-  const siteids = await knexDb.from('votingSites')
+  const siteids = await knexDb.from('votingSiteIds')
     .where('siteId', 'LIKE', `%${query}%`)
-    .orderBy('company', 'ASC')
+    .orderBy('siteId', 'ASC')
     .catch(e => console.log('db', 'database error', e));
   sendBack(res, siteids, 200);
 };
@@ -1456,9 +1456,10 @@ exports.findCompany = async (req, res) =>  {
 
 exports.findVotingSites = async (req, res) =>  {
   const query = req.params.query;
-  const siteids = await knexDb.from('votingSites')
-    .where('company', 'LIKE', `%${query}%`)
-    .orderBy('company', 'ASC')
+  const siteids = await knexDb.from('votingSiteIds')
+    .join('siteIds', 'votingSiteIds.siteId', '=', 'siteIds.siteId')
+    .where('siteIds.company', 'LIKE', `%${query}%`)
+    .orderBy('siteIds.company', 'ASC')
     .catch(e => console.log('db', 'database error', e));
   sendBack(res, siteids, 200);
 };
@@ -1466,7 +1467,8 @@ exports.findVotingSites = async (req, res) =>  {
 exports.getVotingSites = async (req, res) =>  {
   const query = req.query.search;
   const siteids = await knexDb.from('votingSites')
-    .orderBy('company', 'ASC')
+    .join('siteIds', 'votingSiteIds.siteId', '=', 'siteIds.siteId')
+    .orderBy('siteIds.company', 'ASC')
     .catch(e => console.log('db', 'database error', e));
   sendBack(res, siteids, 200);
 };
