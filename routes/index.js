@@ -39,6 +39,8 @@ const Rsvg = require('librsvg-prebuilt').Rsvg;
 const Registrants = require("node-registrants");
 const shortid = require('shortid');
 
+const { emitCount } = require('../lib/socket');
+
 const merchantAuthenticationType = new ApiContracts.MerchantAuthenticationType();
 const mappings = {
   general: {
@@ -730,6 +732,7 @@ exports.addRegistrant = async (req, res) =>  {
   let values = req.body;
   // sendMessage('addRegistrant', { values });
   const registrant = await registrants.initRegistrant(values);
+  updateCheckedIn();
   sendBack(res, registrant, 200);
 };
 
@@ -1657,7 +1660,7 @@ exports.addDeviceToken = async (req, res) =>  {
 const updateCheckedIn = async () => {
   const count = await registrants.getCheckedInCount();
 
-  logAction(0, "updates", count, "checkedIn", "Number checked in");
+  emitCount(count);
 };
 
 const getSiteInfo = async (siteId) => {
@@ -1673,6 +1676,7 @@ const getVotingSiteInfo = async (siteId) => {
     .catch(e => console.log('db', 'database error', e));
   return site;
 };
+
 
 const updateVoteTotals = async () => {
   let offices = await knexDb.from('electionOffices')

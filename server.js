@@ -23,6 +23,7 @@ const redis = require("redis");
 const url = require('url');
 const fileUpload = require('express-fileupload');
 
+const { init } = require('./lib/socket');
 const config = require('./config');
 let opts = {};
 
@@ -81,6 +82,8 @@ opts.secret = salt;
 opts.store = new RedisStore(redisConfig);
 const app = express(opts);
 const server = http.createServer(app);
+const io = require('socket.io')(server);
+init(io);
 //const app = module.exports = require("sockpress").init(opts);
 const router = express.Router();
 const apiRouter = express.Router();
@@ -198,6 +201,19 @@ app.use((err, req, res, next) => {
   }
 });
 
+/*  ==============================================================
+    Socket IO
+=============================================================== */
+
+io.on('connection', (socket) => {
+  socket.emit('news', { hello: 'world' });
+  socket.on(
+    'my other event',
+    (data) => {
+      console.log(data);
+    }
+  );
+});
 
 /*  ==============================================================
     Launch the server
