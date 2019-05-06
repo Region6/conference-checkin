@@ -1,7 +1,7 @@
 {
   "name": "conference-checkin",
   "description": "An app to manage conference checkins",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "author": "Matt Voss",
   "repo": "mattvoss/conference-checkin",
   "keywords": [],
